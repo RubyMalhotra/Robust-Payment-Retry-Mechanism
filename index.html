@@ -1,0 +1,3355 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <title>
+      Payment Request API
+    </title>
+    <script src='https://www.w3.org/Tools/respec/respec-w3c' class=
+    'remove'></script>
+    <script class='remove'>
+    var respecConfig = {
+      shortName: "payment-request",
+      github: "w3c/payment-request",
+      specStatus: "ED",
+      group: "payments",
+      formerEditors: [
+        {
+          name: "Domenic Denicola",
+          company: "Google",
+          w3cid: 52873,
+        },
+        {
+          name: "Adrian Bateman",
+          company: "Microsoft Corporation",
+          w3cid: 42763,
+        },
+        {
+          name: "Zach Koch",
+          company: "Google",
+          w3cid: 76588,
+        },
+        {
+          name: "Roy McElmurry",
+          company: "Facebook",
+          w3cid: 88345,
+        },
+        {
+          name: "Danyao Wang",
+          company: "Google",
+          w3cid: 110796,
+        },
+      ],
+      editors: [
+        {
+          name: "Marcos Cáceres",
+          url: "https://github.com/marcoscaceres",
+          company: "Apple Inc.",
+          companyURL: "https://apple.com",
+          w3cid: 39125,
+        },
+        {
+          name: "Rouslan Solomakhin",
+          url: "https://github.com/rsolomakhin",
+          company: "Google",
+          companyURL: "https://www.google.com/",
+          w3cid: 83784,
+        },
+        {
+          name: "Ian Jacobs",
+          url: "http://www.w3.org/People/Jacobs/",
+          company: "W3C",
+          companyURL: "https://www.w3.org/",
+          w3cid: 2175,
+        },
+      ],
+      previousMaturity: "CR",
+      testSuiteURI: "https://wpt.live/payment-request/",
+      implementationReportURI:
+        "https://w3c.github.io/test-results/payment-request/all.html",
+      prevRecURI: "https://www.w3.org/TR/2022/REC-payment-request-20220908/",
+      caniuse: "payment-request",
+      lint: {
+        "check-punctuation": true,
+        "wpt-tests-exist": true,
+      },
+      doJsonLd: true,
+      xref: "web-platform",
+      mdn: true,
+    };
+    </script>
+  </head>
+  <body data-cite="payment-method-id">
+    <h1 id="title">
+      Payment Request API
+    </h1>
+    <section id='abstract'>
+      <p>
+        This specification standardizes an API to allow merchants (i.e. web
+        sites selling physical or digital goods) to utilize one or more payment
+        methods with minimal integration. User agents (e.g., browsers)
+        facilitate the payment flow between merchant and user.
+      </p>
+    </section>
+    <section id='sotd' class="updateable-rec">
+      <p>
+        In September 2022 the Web Payments Working Group published a <a href=
+        "https://www.w3.org/TR/2022/REC-payment-request-20220908/">Payment
+        Request Recommendation</a>. Following privacy and internationalization
+        reviews, the Recommendation excluded <a href=
+        "https://lists.w3.org/Archives/Public/public-payments-wg/2021Jun/0000.html">
+        capabilities</a> related to billing and shipping addresses. However,
+        implementations have continued to support those features interoperably,
+        and so the Working Group has decided to try to re-align the
+        specification with implementations, and re-engage the community on
+        associated issues.
+      </p>
+      <p>
+        This document is a Candidate Recommendation Snapshot based on the text
+        of the original Recommendation. A subsequent Candidate Recommendation
+        Draft will add back address capabilities and a small number of other
+        changes made since publication of the Recommendation.
+      </p>
+      <p>
+        As part of adding back support for addresses, this specification now
+        refers to the address components defined in the <a href=
+        "https://w3c.github.io/contact-picker/">Contact Picker API</a> rather
+        than define those components itself. Indeed, the Contact Picker API is
+        derived from the original definitions found in Payment Request API, and
+        pulled out of the specification because addresses are useful on the Web
+        beyond payments.
+      </p>
+      <p>
+        The Working Group plans to engage in discussion and follow the usual
+        review process before advancing the specification to Proposed
+        Recommendation status.
+      </p>
+      <p>
+        The working group will demonstrate implementation experience by
+        producing an <a href=
+        "https://w3c.github.io/test-results/payment-request/all.html">implementation
+        report</a>. The report will show two or more independent
+        implementations passing each mandatory test in the <a href=
+        "https://wpt.live/payment-request/">test suite</a> (i.e., each test
+        corresponds to a MUST requirement of the specification).
+      </p>
+    </section>
+    <section class='informative'>
+      <h2>
+        Introduction
+      </h2>
+      <p>
+        This specification describes an API that allows <a>user agents</a>
+        (e.g., browsers) to act as an intermediary between three parties in a
+        transaction:
+      </p>
+      <ul>
+        <li>The payee: the merchant that runs an online store, or other party
+        that requests to be paid.
+        </li>
+        <li>The payer: the party that makes a purchase at that online store,
+        and who authenticates and authorizes payment as required.
+        </li>
+        <li>The <dfn>payment method</dfn>: the means that the payer uses to pay
+        the payee (e.g., a card payment or credit transfer). The <dfn>payment
+        method provider</dfn> establishes the ecosystem to support that payment
+        method.
+        </li>
+      </ul>
+      <p>
+        A payment method defines:
+      </p>
+      <dl>
+        <dt>
+          An optional <dfn data-dfn-for="Payment Method">additional data
+          type</dfn>
+        </dt>
+        <dd>
+          Optionally, an IDL type that the <a>payment method</a> expects to
+          receive as the {{PaymentMethodData}}'s {{PaymentMethodData/data}}
+          member. If not specified for a given payment method, no conversion to
+          IDL is done and the payment method will receive
+          {{PaymentMethodData/data}} as JSON.
+        </dd>
+        <dt>
+          <dfn>Steps to validate payment method data</dfn>
+        </dt>
+        <dd>
+          Algorithmic steps that specify how a <a>payment method</a> validates
+          the {{PaymentMethodData/data}} member of the {{PaymentMethodData}},
+          after it is converted to the payment method's [=Payment
+          Method/additional data type=]. If not specified for a given payment
+          method, no validation is done.
+        </dd>
+      </dl>
+      <p>
+        The details of how to fulfill a payment request for a given <a>payment
+        method</a> is an implementation detail of a <dfn data-export="">payment
+        handler</dfn>, which is an application or service that handles requests
+        for payment. Concretely, a payment handler defines:
+      </p>
+      <dl>
+        <dt>
+          <dfn>Steps to check if a payment can be made</dfn>:
+        </dt>
+        <dd>
+          How a payment handler determines whether it, or the user, can
+          potentially "make a payment" is also an implementation detail of a
+          payment handler.
+        </dd>
+        <dt>
+          <dfn>Steps to respond to a payment request</dfn>:
+        </dt>
+        <dd>
+          Steps that return an object or <a>dictionary</a> that a merchant uses
+          to process or validate the transaction. The structure of this object
+          is specific to each <a>payment method</a>.
+        </dd>
+        <dt>
+          <dfn>Steps for when a user changes payment method</dfn> (optional)
+        </dt>
+        <dd>
+          <p>
+            Steps that describe how to handle the user changing payment method
+            or monetary instrument (e.g., from a debit card to a credit card)
+            that results in a <a>dictionary</a> or {{object}} or null.
+          </p>
+        </dd>
+      </dl>
+      <p>
+        This API also enables web sites to take advantage of more secure
+        payment schemes (e.g., tokenization and system-level authentication)
+        that are not possible with standard JavaScript libraries. This has the
+        potential to reduce liability for the merchant and helps protect
+        sensitive user information.
+      </p>
+      <section id="goals">
+        <h2>
+          Goals and scope
+        </h2>
+        <ul>
+          <li>Allow the user agent to act as intermediary between a merchant,
+          user, and <a>payment method provider</a>.
+          </li>
+          <li>Enable user agents to streamline the user's payment experience by
+          taking into account user preferences, merchant information, security
+          considerations, and other factors.
+          </li>
+          <li>Standardize (to the extent that it makes sense) the communication
+          flow between a merchant, user agent, and <a>payment method
+          provider</a>.
+          </li>
+          <li>Enable a <a>payment method provider</a> to bring more secure
+          payment transactions to the web.
+          </li>
+        </ul>
+        <p>
+          The following are out of scope for this specification:
+        </p>
+        <ul>
+          <li>Create a new <a>payment method</a>.
+          </li>
+          <li>Integrate directly with payment processors.
+          </li>
+        </ul>
+      </section>
+    </section>
+    <section class="informative">
+      <h2>
+        Examples of usage
+      </h2>
+      <p>
+        In order to use the API, the developer needs to provide and keep track
+        of a number of key pieces of information. These bits of information are
+        passed to the {{PaymentRequest}} constructor as arguments, and
+        subsequently used to update the payment request being displayed to the
+        user. Namely, these bits of information are:
+      </p>
+      <ul>
+        <li>The |methodData|: A sequence of <a>PaymentMethodData</a>s that
+        represents the <a>payment methods</a> that the site supports (e.g., "we
+        support card-based payments, but only Visa and MasterCard credit
+        cards.").
+        </li>
+        <li>The |details|: The details of the transaction, as a
+        <a>PaymentDetailsInit</a> dictionary. This includes total cost, and
+        optionally a list of goods or services being purchased. Additionally,
+        it can optionally include "modifiers" to how payments are made. For
+        example, "if you pay with a card belonging to network X, it incurs a
+        US$3.00 processing fee".
+        </li>
+      </ul>
+      <p>
+        Once a {{PaymentRequest}} is constructed, it's presented to the end
+        user via the {{PaymentRequest/show()}} method. The
+        {{PaymentRequest/show()}} returns a promise that, once the user
+        confirms request for payment, results in a {{PaymentResponse}}.
+      </p>
+      <section>
+        <h3>
+          Declaring multiple ways of paying
+        </h3>
+        <p>
+          When constructing a new {{PaymentRequest}}, a merchant uses the first
+          argument (|methodData|) to list the different ways a user can pay for
+          things (e.g., credit cards, Apple Pay, Google Pay, etc.). More
+          specifically, the |methodData| sequence contains
+          <a>PaymentMethodData</a> dictionaries containing the <a>payment
+          method identifiers</a> for the <a>payment methods</a> that the
+          merchant accepts and any associated <a>payment method</a> specific
+          data (e.g., which credit card networks are supported).
+        </p>
+        <pre class="example js" title="The `methodData` argument">
+          const methodData = [
+            {
+              supportedMethods: "https://example.com/payitforward",
+              data: {
+                payItForwardField: "ABC",
+              },
+            },
+            {
+              supportedMethods: "https://example.com/bobpay",
+              data: {
+                merchantIdentifier: "XXXX",
+                bobPaySpecificField: true,
+              },
+            },
+          ];
+        </pre>
+      </section>
+      <section>
+        <h3>
+          Describing what is being paid for
+        </h3>
+        <p>
+          When constructing a new {{PaymentRequest}}, a merchant uses the
+          second argument of the constructor (|details|) to provide the details
+          of the transaction that the user is being asked to complete. This
+          includes the total of the order and, optionally, some line items that
+          can provide a detailed breakdown of what is being paid for.
+        </p>
+        <pre class="example js" title="The `details` argument">
+          const details = {
+            id: "super-store-order-123-12312",
+            displayItems: [
+              {
+                label: "Sub-total",
+                amount: { currency: "GBP", value: "55.00" },
+              },
+              {
+                label: "Value-Added Tax (VAT)",
+                amount: { currency: "GBP", value: "5.00" },
+              },
+              {
+                label: "Standard shipping",
+                amount: { currency: "GBP", value: "5.00" },
+              },
+            ],
+            total: {
+              label: "Total due",
+              // The total is GBP£65.00 here because we need to
+              // add tax and shipping.
+              amount: { currency: "GBP", value: "65.00" },
+            },
+          };
+        </pre>
+      </section>
+      <section>
+        <h3>
+          Conditional modifications to payment request
+        </h3>
+        <p>
+          Here we see how to add a processing fee for using a card on a
+          particular network. Notice that it requires recalculating the total.
+        </p>
+        <pre class="example js" title=
+        "Modifying payment request based on card type">
+          // Certain cards incur a $3.00 processing fee.
+          const cardFee = {
+            label: "Card processing fee",
+            amount: { currency: "AUD", value: "3.00" },
+          };
+
+          // Modifiers apply when the user chooses to pay with
+          // a card.
+          const modifiers = [
+            {
+              additionalDisplayItems: [cardFee],
+              supportedMethods: "https://example.com/cardpay",
+              total: {
+                label: "Total due",
+                amount: { currency: "AUD", value: "68.00" },
+              },
+              data: {
+                supportedNetworks: networks,
+              },
+            },
+          ];
+          Object.assign(details, { modifiers });
+        </pre>
+      </section>
+      <section>
+        <h3>
+          Constructing a <code>PaymentRequest</code>
+        </h3>
+        <p>
+          Having gathered all the prerequisite bits of information, we can now
+          construct a {{PaymentRequest}} and request that the browser present
+          it to the user:
+        </p>
+        <pre class="example js" title="Constructing a `PaymentRequest`">
+          async function doPaymentRequest() {
+            try {
+              const request = new PaymentRequest(methodData, details);
+              const response = await request.show();
+              await validateResponse(response);
+            } catch (err) {
+              // AbortError, SecurityError
+              console.error(err);
+            }
+          }
+          async function validateResponse(response) {
+            try {
+              const errors = await checkAllValuesAreGood(response);
+              if (errors.length) {
+                await response.retry(errors);
+                return validateResponse(response);
+              }
+              await response.complete("success");
+            } catch (err) {
+              // Something went wrong...
+              await response.complete("fail");
+            }
+          }
+          // Must be called as a result of a click
+          // or some explicit user action.
+          doPaymentRequest();
+        </pre>
+      </section>
+      <section>
+        <h3>
+          POSTing payment response back to a server
+        </h3>
+        <p>
+          It's expected that data in a {{PaymentResponse}} will be POSTed back
+          to a server for processing. To make this as easy as possible,
+          {{PaymentResponse}} can use the [=default toJSON steps=] (i.e.,
+          `.toJSON()`) to serializes the object directly into JSON. This makes
+          it trivial to POST the resulting JSON back to a server using the
+          [[[fetch]]]:
+        </p>
+        <pre class="example js" title="POSTing with `fetch()`">
+          async function doPaymentRequest() {
+            const payRequest = new PaymentRequest(methodData, details);
+            const payResponse = await payRequest.show();
+            let result = "";
+            try {
+              const httpResponse = await fetch("/process-payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: payResponse.toJSON(),
+              });
+              result = httpResponse.ok ? "success" : "fail";
+            } catch (err) {
+              console.error(err);
+              result = "fail";
+            }
+            await payResponse.complete(result);
+          }
+          doPaymentRequest();
+        </pre>
+      </section>
+      <section>
+        <h2>
+          Using with cross-origin iframes
+        </h2>
+        <p>
+          To indicate that a cross-origin [^iframe^] is allowed to invoke the
+          payment request API, the [^iframe/allow^] attribute along with the
+          "payment" keyword can be specified on the [^iframe^] element.
+        </p>
+        <pre class="example html" title=
+        "Using Payment Request API with cross-origin iframes">
+          &lt;iframe
+            src="https://cross-origin.example"
+            allow="payment"&gt;
+          &lt;/iframe&gt;
+        </pre>
+        <p>
+          If the [^iframe^] will be navigated across multiple origins that
+          support the Payment Request API, then one can set [^iframe/allow^] to
+          `"payment *"`. The [[[permissions-policy]]] specification provides
+          further details and examples.
+        </p>
+      </section>
+    </section>
+    <section data-dfn-for="PaymentRequest">
+      <h2>
+        <dfn>PaymentRequest</dfn> interface
+      </h2>
+      <pre class="idl">
+        [SecureContext, Exposed=Window]
+        interface PaymentRequest : EventTarget {
+          constructor(
+            sequence&lt;PaymentMethodData&gt; methodData,
+            PaymentDetailsInit details
+          );
+          [NewObject]
+          Promise&lt;PaymentResponse&gt; show(optional Promise&lt;PaymentDetailsUpdate&gt; detailsPromise);
+          [NewObject]
+          Promise&lt;undefined&gt; abort();
+          [NewObject]
+          Promise&lt;boolean&gt; canMakePayment();
+
+          readonly attribute DOMString id;
+
+          attribute EventHandler onpaymentmethodchange;
+        };
+      </pre>
+      <div class="note">
+        <p>
+          A developer creates a {{PaymentRequest}} to make a payment request.
+          This is typically associated with the user initiating a payment
+          process (e.g., by activating a "Buy," "Purchase," or "Checkout"
+          button on a web site, selecting a "Power Up" in an interactive game,
+          or paying at a kiosk in a parking structure). The {{PaymentRequest}}
+          allows developers to exchange information with the <a>user agent</a>
+          while the user is providing input (up to the point of user approval
+          or denial of the payment request).
+        </p>
+      </div>
+      <p>
+        A |request|'s <dfn>payment-relevant browsing context</dfn> is that
+        {{PaymentRequest}}'s [=relevant global object=]'s browsing context's
+        <a>top-level browsing context</a>. Every <a>payment-relevant browsing
+        context</a> has a <dfn>payment request is showing</dfn> boolean, which
+        prevents showing more than one payment UI at a time.
+      </p>
+      <p class="Note">
+        The <a>payment request is showing</a> boolean simply prevents more than
+        one payment UI being shown in a single browser tab. However, a
+        <a>payment handler</a> can restrict the <a>user agent</a> to showing
+        only one payment UI across all browser windows and tabs. Other payment
+        handlers might allow showing a payment UI across disparate browser
+        tabs.
+      </p>
+      <section>
+        <h2>
+          Constructor
+        </h2>
+        <p>
+          The {{PaymentRequest}} is constructed using the supplied sequence of
+          <a>PaymentMethodData</a> |methodData| including any <a>payment
+          method</a> specific {{PaymentMethodData/data}}, and the
+          <a>PaymentDetailsInit</a> |details|.
+        </p>
+        <p data-tests=
+        "payment-request-constructor.https.sub.html, payment-request-insecure.http.html">
+          The <code><dfn data-lt=
+          "PaymentRequest.PaymentRequest()">PaymentRequest(|methodData|,
+          |details|)</dfn></code> constructor MUST act as follows:
+        </p>
+        <ol class="algorithm">
+          <li>If [=this=]'s [=relevant global object=]'s [=associated
+          `Document`=] is not <a>allowed to use</a> the <a>"payment"</a>
+          permission, then [=exception/throw=] a {{"SecurityError"}}
+          {{DOMException}}.
+          </li>
+          <li>Establish the request's id:
+            <ol>
+              <li data-tests="payment-request-id-attribute.https.html">If
+              |details|.{{PaymentDetailsInit/id}} is missing, add an
+              {{PaymentDetailsInit/id}} member to |details| and set its value
+              to a <abbr title="Universally Unique Identifier">UUID</abbr>
+              [[RFC4122]].
+              </li>
+            </ol>
+          </li>
+          <li>Let |serializedMethodData| be an empty list.
+          </li>
+          <li>Process payment methods:
+            <ol>
+              <li>If the length of the |methodData| sequence is zero, then
+              [=exception/throw=] a {{TypeError}}, optionally informing the
+              developer that at least one <a>payment method</a> is required.
+              </li>
+              <li>Let |seenPMIs:Set| be the empty [=set=].
+              </li>
+              <li>For each |paymentMethod| of |methodData|:
+                <ol>
+                  <li data-tests=
+                  "payment-request-ctor-pmi-handling.https.sub.html">Run the
+                  steps to <a>validate a payment method identifier</a> with
+                  |paymentMethod|.{{PaymentMethodData/supportedMethods}}. If it
+                  returns false, then throw a {{RangeError}} exception.
+                  Optionally, inform the developer that the payment method
+                  identifier is invalid.
+                  </li>
+                  <li>Let |pmi| be the result of parsing
+                  |paymentMethod|.{{PaymentMethodData/supportedMethods}} with
+                  [=basic URL parser=]:
+                    <ol>
+                      <li>If failure, set |pmi| to
+                      |paymentMethod|.{{PaymentMethodData/supportedMethods}}.
+                      </li>
+                    </ol>
+                  </li>
+                  <li>If |seenPMIs| [=set/contain|contains=] |pmi| throw a
+                  {{RangeError}} {{DOMException}} optionally informing the
+                  developer that this [=payment method identifier=] is a
+                  duplicate.
+                  </li>
+                  <li>[=set/Append=] |pmi| to |seenPMIs|.
+                  </li>
+                  <li>If the {{PaymentMethodData/data}} member of
+                  |paymentMethod| is missing, let |serializedData| be null.
+                  Otherwise, let |serializedData| be the result of [=serialize
+                  a JavaScript value to a JSON string|serialize=]
+                  |paymentMethod|.{{PaymentMethodData/data}} into a JSON
+                  string. Rethrow any exceptions.
+                  </li>
+                  <li>If |serializedData| is not null, and if the specification
+                  that defines the
+                  |paymentMethod|.{{PaymentMethodData/supportedMethods}}
+                  specifies an [=Payment Method/additional data type=]:
+                    <ol>
+                      <li>Let |object| be the result of <a data-cite=
+                      "ECMASCRIPT#sec-json.parse">JSON-parsing</a>
+                      |serializedData|.
+                      </li>
+                      <li>
+                        <p>
+                          Let |idl| be the result of [=converted to an IDL
+                          value|converting=] |object| to an IDL value of the
+                          [=Payment Method/additional data type=]. Rethrow any
+                          exceptions.
+                        </p>
+                      </li>
+                      <li>
+                        <p>
+                          Run the <a>steps to validate payment method data</a>,
+                          if any, from the specification that defines the
+                          |paymentMethod|.{{PaymentMethodData/supportedMethods}}
+                          on |object|. Rethrow any exceptions.
+                        </p>
+                        <p class="note">
+                          These step assures that any IDL type conversion and
+                          validation errors are caught as early as possible.
+                        </p>
+                      </li>
+                    </ol>
+                  </li>
+                  <li>Add the tuple
+                  (|paymentMethod|.{{PaymentMethodData/supportedMethods}},
+                  |serializedData|) to |serializedMethodData|.
+                  </li>
+                </ol>
+              </li>
+            </ol>
+          </li>
+          <li>Process the total:
+            <ol>
+              <li data-tests=
+              "payment-request-ctor-currency-code-checks.https.sub.html">
+                <a>Check and canonicalize total amount</a>
+                |details|.{{PaymentDetailsInit/total}}.{{PaymentItem/amount}}.
+                Rethrow any exceptions.
+              </li>
+            </ol>
+          </li>
+          <li>If the {{PaymentDetailsBase/displayItems}} member of |details| is
+          present, then for each |item| in
+          |details|.{{PaymentDetailsBase/displayItems}}:
+            <ol>
+              <li data-tests=
+              "payment-request-ctor-currency-code-checks.https.sub.html">
+                <a>Check and canonicalize amount</a>
+                |item|.{{PaymentItem/amount}}. Rethrow any exceptions.
+              </li>
+            </ol>
+          </li>
+          <li>Let |serializedModifierData| be an empty list.
+          </li>
+          <li>Process payment details modifiers:
+            <ol>
+              <li>Let |modifiers| be an empty
+              <code><a>sequence</a></code>&lt;{{PaymentDetailsModifier}}&gt;.
+              </li>
+              <li>If the {{PaymentDetailsBase/modifiers}} member of |details|
+              is present, then:
+                <ol>
+                  <li>Set |modifiers| to
+                  |details|.{{PaymentDetailsBase/modifiers}}.
+                  </li>
+                  <li>For each |modifier| of |modifiers|:
+                    <ol>
+                      <li>If the {{PaymentDetailsModifier/total}} member of
+                      |modifier| is present, then:
+                        <ol>
+                          <li data-tests=
+                          "payment-request-ctor-currency-code-checks.https.sub.html">
+                            <a>Check and canonicalize total amount</a>
+                            |modifier|.{{PaymentDetailsModifier/total}}.{{PaymentItem/amount}}.
+                            Rethrow any exceptions.
+                          </li>
+                        </ol>
+                      </li>
+                      <li>If the
+                      {{PaymentDetailsModifier/additionalDisplayItems}} member
+                      of |modifier| is present, then for each |item| of
+                      |modifier|.{{PaymentDetailsModifier/additionalDisplayItems}}:
+                        <ol>
+                          <li data-tests=
+                          "payment-request-ctor-currency-code-checks.https.sub.html">
+                            <a>Check and canonicalize amount</a>
+                            |item|.{{PaymentItem/amount}}. Rethrow any
+                            exceptions.
+                          </li>
+                        </ol>
+                      </li>
+                      <li>If the {{PaymentDetailsModifier/data}} member of
+                      |modifier| is missing, let |serializedData| be null.
+                      Otherwise, let |serializedData| be the result of
+                      [=serialize a JavaScript value to a JSON
+                      string|serialize=]
+                      |modifier|.{{PaymentDetailsModifier/data}} into a JSON
+                      string. Rethrow any exceptions.
+                      </li>
+                      <li>Add the tuple
+                      (|modifier|.{{PaymentDetailsModifier/supportedMethods}},
+                      |serializedData|) to |serializedModifierData|.
+                      </li>
+                      <li>Remove the {{PaymentDetailsModifier/data}} member of
+                      |modifier|, if it is present.
+                      </li>
+                    </ol>
+                  </li>
+                </ol>
+              </li>
+              <li>Set |details|.{{PaymentDetailsBase/modifiers}} to
+              |modifiers|.
+              </li>
+            </ol>
+          </li>
+          <li>Let |request:PaymentRequest| be a new {{PaymentRequest}}.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[handler]]}} to `null`.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[state]]}} to
+          "[=PaymentRequest/created=]".
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[updating]]}} to false.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[details]]}} to |details|.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[serializedModifierData]]}} to
+          |serializedModifierData|.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[serializedMethodData]]}} to
+          |serializedMethodData|.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[response]]}} to null.
+          </li>
+          <li>Return |request|.
+          </li>
+        </ol>
+      </section>
+      <section data-dfn-for="PaymentRequest">
+        <h2>
+          <dfn>id</dfn> attribute
+        </h2>
+        <p data-tests="payment-request-id-attribute.https.html">
+          When getting, the {{PaymentRequest/id}} attribute returns this
+          {{PaymentRequest}}'s
+          {{PaymentRequest/[[details]]}}.{{PaymentDetailsInit/id}}.
+        </p>
+        <div class="note">
+          <p>
+            For auditing and reconciliation purposes, a merchant can associate
+            a unique identifier for each transaction with the
+            {{PaymentDetailsInit/id}} attribute.
+          </p>
+        </div>
+      </section>
+      <section data-dfn-for="PaymentRequest">
+        <h2>
+          <dfn>show()</dfn> method
+        </h2>
+        <div class="note">
+          <p>
+            The {{PaymentRequest/show()}} method is called when a developer
+            wants to begin user interaction for the payment request. The
+            {{PaymentRequest/show()}} method returns a {{Promise}} that will be
+            resolved when the <a>user accepts the payment request</a>. Some
+            kind of user interface will be presented to the user to facilitate
+            the payment request after the {{PaymentRequest/show()}} method
+            returns.
+          </p>
+          <p>
+            Each payment handler controls what happens when multiple browsing
+            context simultaneously call the {{PaymentRequest/show()}} method.
+            For instance, some payment handlers will allow multiple payment UIs
+            to be shown in different browser tabs/windows. Other payment
+            handlers might only allow a single payment UI to be shown for the
+            entire user agent.
+          </p>
+        </div>
+        <p data-tests="payment-request-show-method.https.html">
+          The <code>show(optional |detailsPromise|)</code> method MUST act as
+          follows:
+        </p>
+        <ol class="algorithm">
+          <li>Let |request:PaymentRequest| be [=this=].
+          </li>
+          <li data-tests=
+          "payment-request-show-method.https.html, show-method-postmessage-manual.https.html">
+          If the [=relevant global object=] of [=request=] does not have
+          [=transient activation=]:
+            <ol>
+              <li>Return [=a promise rejected with=] with a {{"SecurityError"}}
+              {{DOMException}}.
+              </li>
+            </ol>
+          </li>
+          <li data-tests="show-consume-activation.https.html">[=Consume user
+          activation=] of the [=relevant global object=].
+          </li>
+          <li>Let |document| be |request|'s [=relevant global object=]'s
+          [=associated `Document`=].
+          </li>
+          <li data-tests="rejects_if_not_active.https.html">If |document| is
+          not [=Document/fully active=], then return <a>a promise rejected
+          with</a> an {{"AbortError"}} {{DOMException}}.
+          </li>
+          <li>If |document|'s [=Document/visibility state=] is not `"visible"`,
+          then return <a>a promise rejected with</a> an {{"AbortError"}}
+          {{DOMException}}.
+          </li>
+          <li>
+            <p>
+              Optionally, if the <a>user agent</a> wishes to disallow the call
+              to {{PaymentRequest/show()}} to protect the user, then return a
+              promise rejected with a {{"SecurityError"}} {{DOMException}}. For
+              example, the <a>user agent</a> may limit the rate at which a page
+              can call {{PaymentRequest/show()}}, as described in section
+              <a href="#privacy"></a>.
+            </p>
+          </li>
+          <li>If |request|.{{PaymentRequest/[[state]]}} is not
+          "[=PaymentRequest/created=]" then return <a>a promise rejected
+          with</a> an {{"InvalidStateError"}} {{DOMException}}.
+          </li>
+          <li>If the <a>user agent</a>'s <a>payment request is showing</a>
+          boolean is true, then:
+            <ol>
+              <li>Set |request|.{{PaymentRequest/[[state]]}} to
+              "[=PaymentRequest/closed=]".
+              </li>
+              <li>Return <a>a promise rejected with</a> an {{"AbortError"}}
+              {{DOMException}}.
+              </li>
+            </ol>
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[state]]}} to
+          "[=PaymentRequest/interactive=]".
+          </li>
+          <li>Let |acceptPromise:Promise| be <a>a new promise</a>.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[acceptPromise]]}} to
+          |acceptPromise|.
+          </li>
+          <li>
+            <p>
+              Optionally:
+            </p>
+            <ol>
+              <li>Reject |acceptPromise| with an {{"AbortError"}}
+              {{DOMException}}.
+              </li>
+              <li>Set |request|.{{PaymentRequest/[[state]]}} to
+              "[=PaymentRequest/closed=]".
+              </li>
+              <li>Return |acceptPromise|.
+              </li>
+            </ol>
+            <p class="note">
+              This allows the <a>user agent</a> to act as if the user had
+              immediately [=user aborts the payment request|aborted the payment
+              request=], at its discretion. For example, in "private browsing"
+              modes or similar, user agents might take advantage of this step.
+            </p>
+          </li>
+          <li>Set |request|'s <a>payment-relevant browsing context</a>'s
+          <a>payment request is showing</a> boolean to true.
+          </li>
+          <li>Return |acceptPromise| and perform the remaining steps <a>in
+          parallel</a>.
+          </li>
+          <li>Let |handlers:list| be an empty <a>list</a>.
+          </li>
+          <li>For each |paymentMethod| tuple in
+          |request|.{{PaymentRequest/[[serializedMethodData]]}}:
+            <ol>
+              <li>Let |identifier| be the first element in the |paymentMethod|
+              tuple.
+              </li>
+              <li>Let |data| be the result of <a data-cite=
+              "ECMASCRIPT#sec-json.parse">JSON-parsing</a> the second element
+              in the |paymentMethod| tuple.
+              </li>
+              <li>If the specification that defines the |identifier| specifies
+              an [=Payment Method/additional data type=], then [=converted to
+              an IDL value|convert=] |data| to an IDL value of that type.
+              Otherwise, [=converted to an IDL value|convert=] |data| to
+              {{object}}.
+              </li>
+              <li>If conversion results in an <a>exception</a> |error|:
+                <ol>
+                  <li>Set |request|.{{PaymentRequest/[[state]]}} to
+                  "[=PaymentRequest/closed=]".
+                  </li>
+                  <li>Reject |acceptPromise| with |error|.
+                  </li>
+                  <li>Set |request|'s <a>payment-relevant browsing
+                  context</a>'s <a>payment request is showing</a> boolean to
+                  false.
+                  </li>
+                  <li>Terminate this algorithm.
+                  </li>
+                </ol>
+              </li>
+              <li>Let |registeredHandlers| be a <a>list</a> of registered
+              payment handlers for the payment method |identifier|.
+                <aside class="note" title="Payment Handler registration">
+                  Mechanisms to register a payment handler are outside the
+                  scope of this specification. For one mechanism, see
+                  [[[payment-handler]]].
+                </aside>
+              </li>
+              <li>For each |handler| in |registeredHandlers|:
+                <ol>
+                  <li>Let |canMakePayment| be the result of running |handler|'s
+                  <a>steps to check if a payment can be made</a> with |data|.
+                  </li>
+                  <li>If |canMakePayment| is true, then append |handler| to
+                  |handlers|.
+                  </li>
+                </ol>
+              </li>
+            </ol>
+          </li>
+          <li>If |handlers| is empty, then:
+            <ol>
+              <li>Set |request|.{{PaymentRequest/[[state]]}} to
+              "[=PaymentRequest/closed=]".
+              </li>
+              <li>Reject |acceptPromise| with {{"NotSupportedError"}}
+              {{DOMException}}.
+              </li>
+              <li>Set |request|'s <a>payment-relevant browsing context</a>'s
+              <a>payment request is showing</a> boolean to false.
+              </li>
+              <li>Terminate this algorithm.
+              </li>
+            </ol>
+          </li>
+          <li>
+            <p data-cite="html">
+              Present a user interface that will allow the user to interact
+              with the |handlers|. The user agent SHOULD prioritize the user's
+              preference when presenting payment methods. The user interface
+              SHOULD be presented using the language and locale-based
+              formatting that matches the |document|'s [=document
+              element|document element's=] [=Node/language=], if any, or an
+              appropriate fallback if that is not available.
+            </p>
+            <aside class="note" title=
+            "Localization of the payments user interface">
+              <p>
+                The API does not currently provide a way for developers to
+                specify the language and base direction in which the payment
+                sheet is presented to end users. Instead, the API relies on
+                localization information inherited from the document.
+              </p>
+            </aside>
+          </li>
+          <li data-tests="show-method-optional-promise-rejects.https.html">If
+          |detailsPromise| was passed, then:
+            <ol>
+              <li>Run the <a>update a <code>PaymentRequest</code>'s details
+              algorithm</a> with |detailsPromise|, |request|, and null.
+              </li>
+              <li>Wait for the |detailsPromise| to settle.
+                <p class="note">
+                  Based on how the |detailsPromise| settles, the <a>update a
+                  <code>PaymentRequest</code>'s details algorithm</a>
+                  determines how the payment UI behaves. That is, <a>upon
+                  rejection</a> of the |detailsPromise|, the payment request
+                  aborts. Otherwise, <a>upon fulfillment</a> |detailsPromise|,
+                  the user agent re-enables the payment request UI and the
+                  payment flow can continue.
+                </p>
+              </li>
+            </ol>
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[handler]]}} be the <a>payment
+          handler</a> selected by the end-user.
+          </li>
+          <li>Let |modifiers:list| be an empty list.
+          </li>
+          <li>For each |tuple| in
+          {{PaymentRequest/[[serializedModifierData]]}}:
+            <ol>
+              <li>If the first element of |tuple| (a <a>PMI</a>) matches the
+              <a>payment method identifier</a> of
+              |request|.{{PaymentRequest/[[handler]]}}, then append the second
+              element of |tuple| (the serialized method data) to |modifiers|.
+              </li>
+            </ol>
+          </li>
+          <li>
+            <p>
+              Pass the [=converted to an IDL value|converted=] second element
+              in the |paymentMethod| tuple and |modifiers|. Optionally, the
+              user agent SHOULD send the appropriate data from |request| to the
+              user-selected <a>payment handler</a> in order to guide the user
+              through the payment process. This includes the various attributes
+              and other [=internal slots=] of |request| (some MAY be excluded
+              for privacy reasons where appropriate).
+            </p>
+            <p>
+              Handling of multiple applicable modifiers in the
+              {{PaymentRequest/[[serializedModifierData]]}} [=internal slot=]
+              is <a>payment handler</a> specific and beyond the scope of this
+              specification. Nevertheless, it is RECOMMENDED that <a>payment
+              handlers</a> use a "last one wins" approach with items in the
+              {{PaymentRequest/[[serializedModifierData]]}} list: that is to
+              say, an item at the end of the list always takes precedence over
+              any item at the beginning of the list (see example below).
+            </p>
+            <aside class="example" title=
+            "Handling of multiple applicable modifiers">
+              <p>
+                This example demonstrates precedence order of
+                {{PaymentRequest/[[serializedModifierData]]}}. The first
+                modifier applies equally to all cards, irrespective of network.
+                The second modifier applies specifically to cards on the
+                "coolcard" network.
+              </p>
+              <pre class="js">
+                const details = {
+                  total: {
+                    label: "Total due",
+                    amount: { currency: "USD", value: "50.00" },
+                  },
+                };
+                // All cards incur a $3.00 processing fee.
+                const cardFee = {
+                  label: "Card processing fee",
+                  amount: { currency: "USD", value: "3.00" },
+                };
+
+                // But coolcard incurs a $1.00 processing fee.
+                const coolCardFee = {
+                  label: "Coolcard processing fee",
+                  amount: { currency: "USD", value: "1.00" },
+                };
+
+                // Modifiers apply when the user chooses to pay with
+                // a credit card.
+                details.modifiers = [
+                  // Applies to all cards...
+                  {
+                    additionalDisplayItems: [cardFee],
+                    supportedMethods: "https://example.com/cardpay",
+                    total: {
+                      label: "Total due",
+                      amount: { currency: "USD", value: "53.00" },
+                    },
+                    data: {
+                      supportedNetworks: [], // All networks
+                    },
+                  },
+                  // Applies only to cool cards...
+                  {
+                    additionalDisplayItems: [coolCardFee],
+                    supportedMethods: "https://example.com/cardpay",
+                    total: {
+                      label: "Total due",
+                      amount: { currency: "USD", value: "51.00" },
+                    },
+                    data: {
+                      supportedNetworks: ["coolcard"], // coolcard network only
+                    },
+                  },
+                ];
+              </pre>
+              <p>
+                If the modifiers array in the example above was to be reversed
+                (i.e., <code class="js">supportedNetworks: []</code> was to
+                come last in the modifiers list), then it would take precedence
+                over the "coolcard" modifier even though the coolcard modifier
+                matches cards more specifically. This is because "last one
+                wins".
+              </p>
+            </aside>
+            <p>
+              The |acceptPromise| will later be resolved or rejected by either
+              the <a>user accepts the payment request algorithm</a> or the
+              <a>user aborts the payment request algorithm</a>, which are
+              triggered through interaction with the user interface.
+            </p>
+            <p data-tests="rejects_if_not_active.https.html">
+              If |document| stops being [=Document/fully active=] while the
+              user interface is being shown, or no longer is by the time this
+              step is reached, then:
+            </p>
+            <ol>
+              <li>Close down the user interface.
+              </li>
+              <li>Set |request|'s <a>payment-relevant browsing context</a>'s
+              <a>payment request is showing</a> boolean to false.
+              </li>
+            </ol>
+          </li>
+        </ol>
+      </section>
+      <section data-dfn-for="PaymentRequest">
+        <h2>
+          <dfn>abort()</dfn> method
+        </h2>
+        <div class="note">
+          <p>
+            The {{PaymentRequest/abort()}} method is called if a developer
+            wishes to tell the <a>user agent</a> to abort the payment |request|
+            and to tear down any user interface that might be shown. The
+            {{PaymentRequest/abort()}} can only be called after the
+            {{PaymentRequest/show()}} method has been called (see
+            [=PaymentRequest/states=]) and before this instance's
+            {{PaymentRequest/[[acceptPromise]]}} has been resolved. For
+            example, developers might choose to do this if the goods they are
+            selling are only available for a limited amount of time. If the
+            user does not accept the payment request within the allowed time
+            period, then the request will be aborted.
+          </p>
+          <p>
+            A <a>user agent</a> might not always be able to abort a request.
+            For example, if the <a>user agent</a> has delegated responsibility
+            for the request to another app. In this situation,
+            {{PaymentRequest/abort()}} will reject the returned {{Promise}}.
+          </p>
+          <p>
+            See also the algorithm when the <a>user aborts the payment
+            request</a>.
+          </p>
+        </div>
+        <p data-tests="payment-request-abort-method.https.html">
+          The {{PaymentRequest/abort()}} method MUST act as follows:
+        </p>
+        <ol class="algorithm">
+          <li>Let |request:PaymentRequest| be [=this=].
+          </li>
+          <li>If |request|.{{PaymentRequest/[[response]]}} is not null, and
+          |request|.{{PaymentRequest/[[response]]}}.{{PaymentResponse/[[retryPromise]]}}
+          is not null, return <a>a promise rejected with</a> an
+          {{"InvalidStateError"}} {{DOMException}}.
+          </li>
+          <li>If the value of |request|.{{PaymentRequest/[[state]]}} is not
+          "[=PaymentRequest/interactive=]" then return <a>a promise rejected
+          with</a> an {{"InvalidStateError"}} {{DOMException}}.
+          </li>
+          <li>Let |promise:Promise| be <a>a new promise</a>.
+          </li>
+          <li>Return |promise| and perform the remaining steps <a>in
+          parallel</a>.
+          </li>
+          <li>Try to abort the current user interaction with the <a>payment
+          handler</a> and close down any remaining user interface.
+          </li>
+          <li>
+            <a>Queue a task</a> on the <a>user interaction task source</a> to
+            perform the following steps:
+            <ol>
+              <li>If it is not possible to abort the current user interaction,
+              then reject |promise| with {{"InvalidStateError"}}
+              {{DOMException}} and abort these steps.
+              </li>
+              <li>Set |request|.{{PaymentRequest/[[state]]}} to
+              "[=PaymentRequest/closed=]".
+              </li>
+              <li>Reject the promise
+              |request|.{{PaymentRequest/[[acceptPromise]]}} with an
+              {{"AbortError"}} {{DOMException}}.
+              </li>
+              <li>Resolve |promise| with undefined.
+              </li>
+            </ol>
+          </li>
+        </ol>
+      </section>
+      <section data-dfn-for="PaymentRequest">
+        <h2>
+          <dfn>canMakePayment()</dfn> method
+        </h2>
+        <div class="note" title="canMakePayment()">
+          <p>
+            The {{PaymentRequest/canMakePayment()}} method can be used by the
+            developer to determine if the <a>user agent</a> has support for one
+            of the desired <a>payment methods</a>. See
+            [[[#canmakepayment-protections]]].
+          </p>
+          <p>
+            A true result from {{PaymentRequest/canMakePayment()}} does not
+            imply that the user has a provisioned instrument ready for payment.
+          </p>
+        </div>
+        <p data-tests="payment-request-canmakepayment-method.https.html">
+          The {{PaymentRequest/canMakePayment()}} method MUST run the <a>can
+          make payment algorithm</a>.
+        </p>
+      </section>
+      <section data-dfn-for="PaymentRequest">
+        <h2>
+          <dfn>onpaymentmethodchange</dfn> attribute
+        </h2>
+        <p>
+          A {{PaymentRequest}}'s {{PaymentRequest/onpaymentmethodchange}}
+          attribute is an {{EventHandler}} for a {{PaymentMethodChangeEvent}}
+          named "<a>paymentmethodchange</a>".
+        </p>
+      </section>
+      <section>
+        <h2>
+          Internal Slots
+        </h2>
+        <p>
+          Instances of {{PaymentRequest}} are created with the [=internal
+          slots=] in the following table:
+        </p>
+        <table class="data" data-dfn-for="PaymentRequest">
+          <tr>
+            <th>
+              Internal Slot
+            </th>
+            <th>
+              Description (<em>non-normative</em>)
+            </th>
+          </tr>
+          <tr>
+            <td>
+              <dfn data-export="">[[\serializedMethodData]]</dfn>
+            </td>
+            <td>
+              The <code>methodData</code> supplied to the constructor, but
+              represented as tuples containing supported methods and a string
+              or null for data (instead of the original object form).
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <dfn data-export="" data-dfn-for=
+              "PaymentRequest">[[\serializedModifierData]]</dfn>
+            </td>
+            <td>
+              A list containing the serialized string form of each
+              {{PaymentDetailsModifier/data}} member for each corresponding
+              item in the sequence
+              {{PaymentRequest/[[details]]}}.{{PaymentDetailsBase/modifier}},
+              or null if no such member was present.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <dfn data-export="" data-dfn-for=
+              "PaymentRequest">[[\details]]</dfn>
+            </td>
+            <td>
+              The current {{PaymentDetailsBase}} for the payment request
+              initially supplied to the constructor and then updated with calls
+              to {{PaymentRequestUpdateEvent/updateWith()}}. Note that all
+              {{PaymentDetailsModifier/data}} members of
+              {{PaymentDetailsModifier}} instances contained in the
+              {{PaymentDetailsBase/modifiers}} member will be removed, as they
+              are instead stored in serialized form in the
+              {{PaymentRequest/[[serializedModifierData]]}} [=internal slot=].
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <dfn data-dfn-for="PaymentRequest">[[\state]]</dfn>
+            </td>
+            <td>
+              <p>
+                The current <dfn data-dfn-for="PaymentRequest" data-export=
+                "">state</dfn> of the payment request, which transitions from:
+              </p>
+              <dl>
+                <dt>
+                  "<dfn data-dfn-for="PaymentRequest">created</dfn>"
+                </dt>
+                <dd>
+                  The payment request is constructed and has not been presented
+                  to the user.
+                </dd>
+                <dt>
+                  "<dfn data-dfn-for="PaymentRequest">interactive</dfn>"
+                </dt>
+                <dd>
+                  The payment request is being presented to the user.
+                </dd>
+                <dt>
+                  "<dfn data-dfn-for="PaymentRequest">closed</dfn>"
+                </dt>
+                <dd>
+                  The payment request completed.
+                </dd>
+              </dl>
+              <p>
+                The [=PaymentRequest/state=] transitions are illustrated in the
+                figure below:
+              </p>
+              <figure>
+                <img alt="" src="images/state-transitions.svg" width="518"
+                height="125">
+                <figcaption>
+                  The constructor sets the initial [=PaymentRequest/state=] to
+                  "[=PaymentRequest/created=]". The {{PaymentRequest/show()}}
+                  method changes the [=PaymentRequest/state=] to
+                  "[=PaymentRequest/interactive=]". From there, the
+                  {{PaymentRequest/abort()}} method or any other error can send
+                  the [=PaymentRequest/state=] to "[=PaymentRequest/closed=]";
+                  similarly, the <a>user accepts the payment request
+                  algorithm</a> and <a>user aborts the payment request
+                  algorithm</a> will change the [=PaymentRequest/state=] to
+                  "[=PaymentRequest/closed=]".
+                </figcaption>
+              </figure>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <dfn>[[\updating]]</dfn>
+            </td>
+            <td>
+              True if there is a pending
+              {{PaymentRequestUpdateEvent/updateWith()}} call to update the
+              payment request and false otherwise.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <dfn>[[\acceptPromise]]</dfn>
+            </td>
+            <td>
+              The pending {{Promise}} created during {{PaymentRequest/show()}}
+              that will be resolved if the user accepts the payment request.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <dfn>[[\response]]</dfn>
+            </td>
+            <td>
+              Null, or the {{PaymentResponse}} instantiated by this
+              {{PaymentRequest}}.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <dfn data-dfn-for="PaymentRequest">[[\handler]]</dfn>
+            </td>
+            <td>
+              The <a>Payment Handler</a> associated with this
+              {{PaymentRequest}}. Initialized to `null`.
+            </td>
+          </tr>
+        </table>
+      </section>
+    </section>
+    <section data-dfn-for="PaymentMethodData">
+      <h2>
+        <dfn>PaymentMethodData</dfn> dictionary
+      </h2>
+      <pre class="idl">
+        dictionary PaymentMethodData {
+          required DOMString supportedMethods;
+          object data;
+        };
+      </pre>
+      <p>
+        A <a>PaymentMethodData</a> dictionary is used to indicate a set of
+        supported <a>payment methods</a> and any associated <a>payment
+        method</a> specific data for those methods.
+      </p>
+      <dl>
+        <dt>
+          <dfn>supportedMethods</dfn> member
+        </dt>
+        <dd>
+          A <a>payment method identifier</a> for a <a>payment method</a> that
+          the merchant web site accepts.
+        </dd>
+        <dt>
+          <dfn>data</dfn> member
+        </dt>
+        <dd>
+          An object that provides optional information that might be needed by
+          the supported payment methods. If supplied, it will be [=serialize a
+          JavaScript value to a JSON string|serialized=].
+        </dd>
+      </dl>
+      <p class="note">
+        The value of <code>supportedMethods</code> was changed from array to
+        string, but the name was left as a plural to maintain compatibility
+        with existing content on the Web.
+      </p>
+    </section>
+    <section data-dfn-for="PaymentCurrencyAmount">
+      <h2>
+        <dfn>PaymentCurrencyAmount</dfn> dictionary
+      </h2>
+      <pre class="idl">
+        dictionary PaymentCurrencyAmount {
+          required DOMString currency;
+          required DOMString value;
+        };
+      </pre>
+      <p>
+        A {{PaymentCurrencyAmount}} dictionary is used to supply monetary
+        amounts.
+      </p>
+      <dl>
+        <dt>
+          <dfn>currency</dfn> member
+        </dt>
+        <dd>
+          <p>
+            An [[ISO4217]] <a data-cite=
+            "ecma-402#sec-iswellformedcurrencycode">well-formed</a> 3-letter
+            alphabetic code (i.e., the numeric codes are not supported). Their
+            canonical form is upper case. However, the set of combinations of
+            currency code for which localized currency symbols are available is
+            implementation dependent.
+          </p>
+          <p>
+            When displaying a monetary value, it is RECOMMENDED that user
+            agents display the currency code, but it's OPTIONAL for user agents
+            to display a currency symbol. This is because currency symbols can
+            be ambiguous due to use across a number of different currencies
+            (e.g., "$" could mean any of USD, AUD, NZD, CAD, and so on.).
+          </p>
+          <p>
+            User agents MAY format the display of the
+            {{PaymentCurrencyAmount/currency}} member to adhere to OS
+            conventions (e.g., for localization purposes).
+          </p>
+          <div class="note" title=
+          "Digital currencies and ISO 4217 currency codes">
+            <p>
+              User agents implementing this specification enforce [[ISO4217]]'s
+              3-letter codes format via ECMAScript’s <a data-cite=
+              "ecma-402#sec-iswellformedcurrencycode">isWellFormedCurrencyCode</a>
+              abstract operation, which is invoked as part of the <a>check and
+              canonicalize amount</a> algorithm. When a code does not adhere to
+              the [[ISO4217]] defined format, a {{RangeError}} is thrown.
+            </p>
+            <p>
+              Current implementations will therefore allow the use of
+              well-formed currency codes that are not part of the official
+              [[ISO4217]] list (e.g., XBT, XRP, etc.). If the provided code is
+              a currency that the browser knows how to display, then an
+              implementation will generally display the appropriate currency
+              symbol in the user interface (e.g., "USD" is shown as U+0024
+              Dollar Sign ($), "GBP" is shown as U+00A3 Pound Sign (£), "PLN"
+              is shown as U+007A U+0142 Złoty (zł), and the non-standard "XBT"
+              could be shown as U+0243 Latin Capital Letter B with Stroke (Ƀ)).
+            </p>
+            <p>
+              Efforts are underway at ISO to account for digital currencies,
+              which may result in an update to the [[ISO4217]] registry or an
+              entirely new registry. The community expects this will resolve
+              ambiguities that have crept in through the use of non-standard
+              3-letter codes; for example, does "BTC" refer to Bitcoin or to a
+              future Bhutan currency? At the time of publication, it remains
+              unclear what form this evolution will take, or even the time
+              frame in which the work will be completed. The W3C Web Payments
+              Working Group is liaising with ISO so that, in the future,
+              revisions to this specification remain compatible with relevant
+              ISO registries.
+            </p>
+          </div>
+        </dd>
+        <dt>
+          <dfn>value</dfn> member
+        </dt>
+        <dd>
+          A <a>valid decimal monetary value</a> containing a monetary amount.
+        </dd>
+      </dl>
+      <pre class="example js" title="How to represent 1.234 Omani rials">
+        {
+           "currency": "OMR",
+           "value": "1.234"
+        }
+     </pre>
+      <section>
+        <h3>
+          Validity checkers
+        </h3>
+        <p>
+          A [=JavaScript string=] is a <dfn>valid decimal monetary value</dfn>
+          if it consists of the following [=code points=] in the given order:
+        </p>
+        <ol>
+          <li>Optionally, a single U+002D (-), to indicate that the amount is
+          negative.
+          </li>
+          <li>One or more [=code points=] in the range U+0030 (0) to U+0039
+          (9).
+          </li>
+          <li>Optionally, a single U+002E (.) followed by one or more [=code
+          points=] in the range U+0030 (0) to U+0039 (9).
+          </li>
+        </ol>
+        <div class="note">
+          The following regular expression is an implementation of the above
+          definition.
+          <pre class="hljs">^-?[0-9]+(\.[0-9]+)?$</pre>
+        </div>
+        <p>
+          To <dfn>check and canonicalize amount</dfn> given a
+          {{PaymentCurrencyAmount}} |amount|, run the following steps:
+        </p>
+        <ol>
+          <li>If the result of <a data-cite=
+          "ecma-402#sec-iswellformedcurrencycode">IsWellFormedCurrencyCode</a>(|amount|.{{PaymentCurrencyAmount/currency}})
+          is false, then throw a {{RangeError}} exception, optionally informing
+          the developer that the currency is invalid.
+          </li>
+          <li>If |amount|.{{PaymentCurrencyAmount/value}} is not a <a>valid
+          decimal monetary value</a>, throw a {{TypeError}}, optionally
+          informing the developer that the currency is invalid.
+          </li>
+          <li>Set |amount|.{{PaymentCurrencyAmount/currency}} to the result of
+          <a>ASCII uppercase</a> |amount|.{{PaymentCurrencyAmount/currency}}.
+          </li>
+        </ol>
+        <p>
+          To <dfn>check and canonicalize total amount</dfn> given a
+          {{PaymentCurrencyAmount}} |amount:PaymentCurrencyAmount|, run the
+          following steps:
+        </p>
+        <ol>
+          <li>
+            <a>Check and canonicalize amount</a> |amount|. Rethrow any
+            exceptions.
+          </li>
+          <li>If the first <a>code point</a> of
+          |amount|.{{PaymentCurrencyAmount/value}} is U+002D (-), then throw a
+          {{TypeError}} optionally informing the developer that a total's value
+          can't be a negative number.
+          </li>
+        </ol>
+        <aside class="note" title="No alteration of values">
+          <p>
+            The algorithm does not alter or canonicalize the
+            |amount|.{{PaymentCurrencyAmount/value}}. For example, a user agent
+            will not change "55" into "55.00". Payment handlers need to be
+            prepared to deal with such values.
+          </p>
+        </aside>
+      </section>
+    </section>
+    <section>
+      <h2>
+        Payment details dictionaries
+      </h2>
+      <section data-dfn-for="PaymentDetailsBase">
+        <h2>
+          <dfn>PaymentDetailsBase</dfn> dictionary
+        </h2>
+        <pre class="idl">
+        dictionary PaymentDetailsBase {
+          sequence&lt;PaymentItem&gt; displayItems;
+          sequence&lt;PaymentDetailsModifier&gt; modifiers;
+        };
+        </pre>
+        <dl>
+          <dt>
+            <dfn>displayItems</dfn> member
+          </dt>
+          <dd>
+            A sequence of {{PaymentItem}} dictionaries contains line items for
+            the payment request that the <a>user agent</a> MAY display.
+            <aside class="note">
+              It is the developer's responsibility, when generating or updating
+              a {{PaymentRequest}}, to verify that the
+              {{PaymentDetailsInit/total}} amount is the sum of these items.
+            </aside>
+          </dd>
+          <dt>
+            <dfn>modifiers</dfn> member
+          </dt>
+          <dd>
+            A sequence of {{PaymentDetailsModifier}} dictionaries that contains
+            modifiers for particular payment method identifiers. For example,
+            it allows you to adjust the total amount based on payment method.
+          </dd>
+        </dl>
+      </section>
+      <section data-dfn-for="PaymentDetailsInit">
+        <h2>
+          <dfn>PaymentDetailsInit</dfn> dictionary
+        </h2>
+        <pre class="idl">
+          dictionary PaymentDetailsInit : PaymentDetailsBase {
+            DOMString id;
+            required PaymentItem total;
+          };
+        </pre>
+        <aside class="note">
+          The <a>PaymentDetailsInit</a> dictionary is used in the construction
+          of the payment request.
+        </aside>
+        <p>
+          In addition to the members inherited from the {{PaymentDetailsBase}}
+          dictionary, the following members are part of the
+          <a>PaymentDetailsInit</a> dictionary:
+        </p>
+        <dl>
+          <dt>
+            <dfn>id</dfn> member
+          </dt>
+          <dd>
+            A free-form identifier for this payment request.
+            <aside class="note">
+              If an {{PaymentDetailsInit/id}} member is not present, then the
+              <a>user agent</a> will generate a unique identifier for the
+              payment request during
+              [=PaymentRequest.PaymentRequest()|construction=]
+            </aside>
+          </dd>
+          <dt>
+            <dfn>total</dfn> member
+          </dt>
+          <dd>
+            A {{PaymentItem}} containing a non-negative total amount for the
+            payment request.
+            <aside class="note">
+              Algorithms in this specification that accept a
+              {{PaymentDetailsInit}} dictionary will throw if the
+              {{PaymentDetailsInit/total}}.{{PaymentItem/amount}}.{{PaymentCurrencyAmount/value}}
+              is a negative number.
+            </aside>
+          </dd>
+        </dl>
+      </section>
+      <section data-dfn-for="PaymentDetailsUpdate">
+        <h2>
+          <dfn>PaymentDetailsUpdate</dfn> dictionary
+        </h2>
+        <pre class="idl">
+          dictionary PaymentDetailsUpdate : PaymentDetailsBase {
+            PaymentItem total;
+            object paymentMethodErrors;
+          };
+        </pre>
+        <p>
+          The {{PaymentDetailsUpdate}} dictionary is used to update the payment
+          request using {{PaymentRequestUpdateEvent/updateWith()}}.
+        </p>
+        <p>
+          In addition to the members inherited from the {{PaymentDetailsBase}}
+          dictionary, the following members are part of the
+          {{PaymentDetailsUpdate}} dictionary:
+        </p>
+        <dl>
+          <dt>
+            <dfn>total</dfn> member
+          </dt>
+          <dd>
+            A {{PaymentItem}} containing a non-negative {{PaymentItem/amount}}.
+            <p class="note">
+              Algorithms in this specification that accept a
+              {{PaymentDetailsUpdate}} dictionary will throw if the
+              {{PaymentDetailsUpdate/total}}.{{PaymentItem/amount}}.{{PaymentCurrencyAmount/value}}
+              is a negative number.
+            </p>
+          </dd>
+          <dt>
+            <dfn>paymentMethodErrors</dfn> member
+          </dt>
+          <dd>
+            <p>
+              <a>Payment method</a> specific errors.
+            </p>
+          </dd>
+        </dl>
+      </section>
+    </section>
+    <section data-dfn-for="PaymentDetailsModifier">
+      <h2>
+        <dfn>PaymentDetailsModifier</dfn> dictionary
+      </h2>
+      <pre class="idl">
+        dictionary PaymentDetailsModifier {
+          required DOMString supportedMethods;
+          PaymentItem total;
+          sequence&lt;PaymentItem&gt; additionalDisplayItems;
+          object data;
+        };
+      </pre>
+      <p>
+        The {{PaymentDetailsModifier}} dictionary provides details that modify
+        the {{PaymentDetailsBase}} based on a <a>payment method identifier</a>.
+        It contains the following members:
+      </p>
+      <dl>
+        <dt>
+          <dfn>supportedMethods</dfn> member
+        </dt>
+        <dd>
+          A <a>payment method identifier</a>. The members of the
+          {{PaymentDetailsModifier}} only apply if the user selects this
+          <a>payment method</a>.
+        </dd>
+        <dt>
+          <dfn>total</dfn> member
+        </dt>
+        <dd>
+          A {{PaymentItem}} value that overrides the
+          {{PaymentDetailsInit/total}} member in the <a>PaymentDetailsInit</a>
+          dictionary for the <a>payment method identifiers</a> of the
+          {{PaymentDetailsModifier/supportedMethods}} member.
+        </dd>
+        <dt>
+          <dfn>additionalDisplayItems</dfn> member
+        </dt>
+        <dd>
+          A sequence of {{PaymentItem}} dictionaries provides additional
+          display items that are appended to the
+          {{PaymentDetailsBase/displayItems}} member in the
+          {{PaymentDetailsBase}} dictionary for the <a>payment method
+          identifiers</a> in the {{PaymentDetailsModifier/supportedMethods}}
+          member. This member is commonly used to add a discount or surcharge
+          line item indicating the reason for the different
+          {{PaymentDetailsModifier/total}} amount for the selected <a>payment
+          method</a> that the user agent MAY display.
+          <p class="note">
+            It is the developer's responsibility to verify that the
+            {{PaymentDetailsModifier/total}} amount is the sum of the
+            {{PaymentDetailsBase/displayItems}} and the
+            {{PaymentDetailsModifier/additionalDisplayItems}}.
+          </p>
+        </dd>
+        <dt>
+          <dfn>data</dfn> member
+        </dt>
+        <dd>
+          An object that provides optional information that might be needed by
+          the supported payment methods. If supplied, it will be [=serialize a
+          JavaScript value to a JSON string|serialized=].
+        </dd>
+      </dl>
+    </section>
+    <section data-dfn-for="PaymentItem">
+      <h2>
+        <dfn>PaymentItem</dfn> dictionary
+      </h2>
+      <pre class="idl">
+        dictionary PaymentItem {
+          required DOMString label;
+          required PaymentCurrencyAmount amount;
+          boolean pending = false;
+        };
+      </pre>
+      <p>
+        A sequence of one or more {{PaymentItem}} dictionaries is included in
+        the {{PaymentDetailsBase}} dictionary to indicate what the payment
+        request is for and the value asked for.
+      </p>
+      <dl>
+        <dt>
+          <dfn>label</dfn> member
+        </dt>
+        <dd>
+          A human-readable description of the item. The <a>user agent</a> may
+          display this to the user.
+          <aside class="note" title="Internationalization of the label">
+            <p>
+              The language and direction of the {{PaymentItem/label}} may often
+              be determined from information inherited from the document.
+              However, this approach may not suffice for some use cases. The
+              working group intends to fix this in a future version by aligning
+              with general approaches for the Web that are in development.
+            </p>
+          </aside>
+        </dd>
+        <dt>
+          <dfn>amount</dfn> member
+        </dt>
+        <dd>
+          A {{PaymentCurrencyAmount}} containing the monetary amount for the
+          item.
+        </dd>
+        <dt>
+          <dfn>pending</dfn> member
+        </dt>
+        <dd>
+          A boolean. When set to true it means that the {{PaymentItem/amount}}
+          member is not final. This is commonly used to show items such as
+          shipping or tax amounts that depend upon selection of shipping
+          address or shipping option. <a>User agents</a> MAY indicate pending
+          fields in the user interface for the payment request.
+        </dd>
+      </dl>
+    </section>
+    <section data-dfn-for="PaymentCompleteDetails">
+      <h2>
+        <dfn>PaymentCompleteDetails</dfn> dictionary
+      </h2>
+      <pre class="idl">
+        dictionary PaymentCompleteDetails {
+          object? data = null;
+        };
+      </pre>
+      <p>
+        The {{PaymentCompleteDetails}} dictionary provides additional
+        information from the merchant website to the payment handler when the
+        payment request completes.
+      </p>
+      <p>
+        The {{PaymentCompleteDetails}} dictionary contains the following
+        members:
+      </p>
+      <dl>
+        <dt>
+          <dfn>data</dfn> member
+        </dt>
+        <dd>
+          An object that provides optional information that might be needed by
+          the {{PaymentResponse}} associated [=payment method=]. If supplied,
+          it will be [=serialize a JavaScript value to a JSON
+          string|serialize=].
+        </dd>
+      </dl>
+    </section>
+    <section data-dfn-for="PaymentComplete">
+      <h2>
+        <dfn>PaymentComplete</dfn> enum
+      </h2>
+      <pre class="idl">
+        enum PaymentComplete {
+          "fail",
+          "success",
+          "unknown"
+        };
+      </pre>
+      <dl>
+        <dt>
+          "<dfn>fail</dfn>"
+        </dt>
+        <dd>
+          Indicates that processing of the payment failed. The <a>user
+          agent</a> MAY display UI indicating failure.
+        </dd>
+        <dt>
+          "<dfn>success</dfn>"
+        </dt>
+        <dd>
+          Indicates the payment was successfully processed. The <a>user
+          agent</a> MAY display UI indicating success.
+        </dd>
+        <dt>
+          "<dfn>unknown</dfn>"
+        </dt>
+        <dd>
+          The developer did not indicate success or failure and the <a>user
+          agent</a> SHOULD NOT display UI indicating success or failure.
+        </dd>
+      </dl>
+    </section>
+    <section data-dfn-for="PaymentResponse">
+      <h2>
+        <dfn>PaymentResponse</dfn> interface
+      </h2>
+      <pre class="idl">
+        [SecureContext, Exposed=Window]
+        interface PaymentResponse : EventTarget  {
+          [Default] object toJSON();
+
+          readonly attribute DOMString requestId;
+          readonly attribute DOMString methodName;
+          readonly attribute object details;
+
+          [NewObject]
+          Promise&lt;undefined&gt; complete(
+            optional PaymentComplete result = "unknown",
+            optional PaymentCompleteDetails details = {}
+          );
+          [NewObject]
+          Promise&lt;undefined&gt; retry(optional PaymentValidationErrors errorFields = {});
+        };
+      </pre>
+      <p class="note">
+        A {{PaymentResponse}} is returned when a user has selected a payment
+        method and approved a payment request.
+      </p>
+      <section>
+        <h2>
+          <dfn>retry()</dfn> method
+        </h2>
+        <aside class="note">
+          <p>
+            If a {{PaymentResponse}} is found to be erroneous (e.g., a payment
+            instrument has expired or shipping information is invalid), the
+            {{PaymentResponse/retry()}} method affords the end user the ability
+            to fix input errors and try to get the merchant to processed the
+            payment again. The passed {{PaymentValidationErrors}} serve as
+            hints as to where input errors have occurred in the
+            {{PaymentResponse}}, which the end user needs to correct.
+          </p>
+          <p>
+            However, an end user may decide, upon inspection of the
+            {{PaymentValidationErrors}}, to provide an entirely new set of
+            values for the {{PaymentResponse}}. For example, the user might
+            switch to a an entirely different payment instrument and/or provide
+            an entirely different shipping address.
+          </p>
+          <p>
+            As such, merchants need to be prepared to completely revalidate a
+            {{PaymentResponse}} once the {{PaymentResponse/[[retryPromise]]}}
+            settles.
+          </p>
+          <p>
+            Lastly, as a {{PaymentResponse}} is inherently tied to a particular
+            [=payment handler=] via a {{PaymentRequest}}, it is not possible
+            for the end user to switch to a different [=payment handler=]
+            during {{PaymentResponse/retry()}}.
+          </p>
+        </aside>
+        <p>
+          The <code>retry(|errorFields:PaymentValidationErrors|)</code> method
+          MUST act as follows:
+        </p>
+        <ol class="algorithm">
+          <li>Let |response:PaymentResponse| be [=this=].
+          </li>
+          <li>Let |request:PaymentRequest| be
+          |response|.{{PaymentResponse/[[request]]}}.
+          </li>
+          <li>Let |document:Document| be |request|'s <a>relevant global
+          object</a>'s <a>associated `Document`</a>.
+          </li>
+          <li data-tests=
+          "payment-response/rejects_if_not_active-manual.https.html">If
+          |document| is not [=Document/fully active=], then return <a>a promise
+          rejected with</a> an {{"AbortError"}} {{DOMException}}.
+          </li>
+          <li>If |response|.{{PaymentResponse/[[complete]]}} is true, return
+          <a>a promise rejected with</a> an {{"InvalidStateError"}}
+          {{DOMException}}.
+          </li>
+          <li>If |response|.{{PaymentResponse/[[retryPromise]]}} is not null,
+          return <a>a promise rejected with</a> an {{"InvalidStateError"}}
+          {{DOMException}}.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[state]]}} to
+          "[=PaymentRequest/interactive=]".
+          </li>
+          <li>Let |retryPromise:Promise| be <a>a new promise</a>.
+          </li>
+          <li>Set |response|.{{PaymentResponse/[[retryPromise]]}} to
+          |retryPromise|.
+          </li>
+          <li>If |errorFields:PaymentValidationErrors| was passed:
+            <ol>
+              <li data-tests=
+              "PaymentValidationErrors/retry-shows-error-member-manual.https.html">
+              If
+              |errorFields:PaymentValidationErrors|.{{PaymentValidationErrors/paymentMethod}}
+              member was passed, and if required by the specification that
+              defines |response|.{{PaymentResponse/methodName}}, then
+              [=converted to an IDL value|convert=] |errorFields|'s
+              {{PaymentValidationErrors/paymentMethod}} member to an IDL value
+              of the type specified there. Otherwise, [=converted to an IDL
+              value|convert=] to {{object}}.
+              </li>
+              <li>Set |request|'s <a>payment-relevant browsing context</a>'s
+              <a>payment request is showing</a> boolean to false.
+              </li>
+              <li>If conversion results in a <a>exception</a> |error|:
+                <ol>
+                  <li>Reject |retryPromise| with |error|.
+                  </li>
+                  <li>Set <a>user agent</a>'s <a>payment request is showing</a>
+                  boolean to false.
+                  </li>
+                  <li>Return.
+                  </li>
+                </ol>
+              </li>
+              <li>By matching the members of |errorFields| to input fields in
+              the user agent's UI, indicate to the end user that something is
+              wrong with the data of the payment response. For example, a user
+              agent might draw the user's attention to the erroneous
+              |errorFields| in the browser's UI and display the value of each
+              field in a manner that helps the user fix each error. Similarly,
+              if the {{PaymentValidationErrors/error}} member is passed,
+              present the error in the user agent's UI. In the case where the
+              value of a member is the empty string, the user agent MAY
+              substitute a value with a suitable error message.
+              </li>
+            </ol>
+          </li>
+          <li>Otherwise, if |errorFields| was not passed, signal to the end
+          user to attempt to retry the payment. Re-enable any UI element that
+          affords the end user the ability to retry accepting the payment
+          request.
+          </li>
+          <li>
+            <span data-tests=
+            "payment-response/rejects_if_not_active-manual.https.html">If
+            |document| stops being [=Document/fully active=] while the user
+            interface is being shown, or no longer is by the time this step is
+            reached, then:</span>
+            <ol>
+              <li>Close down the user interface.
+              </li>
+              <li>Set |request|'s <a>payment-relevant browsing context</a>'s
+              <a>payment request is showing</a> boolean to false.
+              </li>
+            </ol>
+          </li>
+          <li>Finally, when |retryPromise| settles, set
+          |response|.{{PaymentResponse/[[retryPromise]]}} to null.
+          </li>
+          <li>Return |retryPromise|.
+            <p class="note">
+              The |retryPromise| will later be resolved by the <a>user accepts
+              the payment request algorithm</a>, or rejected by either the
+              <a>user aborts the payment request algorithm</a> or <a>abort the
+              update</a>.
+            </p>
+          </li>
+        </ol>
+        <section data-dfn-for="PaymentValidationErrors">
+          <h3>
+            <dfn>PaymentValidationErrors</dfn> dictionary
+          </h3>
+          <pre class="idl">
+            dictionary PaymentValidationErrors {
+              DOMString error;
+              object paymentMethod;
+            };
+          </pre>
+          <dl>
+            <dt>
+              <dfn>error</dfn> member
+            </dt>
+            <dd>
+              A general description of an error with the payment from which the
+              user can attempt to recover. For example, the user may recover by
+              retrying the payment. A developer can optionally pass the
+              {{PaymentValidationErrors/error}} member on its own to give a
+              general overview of validation issues, or it can be passed in
+              combination with other members of the {{PaymentValidationErrors}}
+              dictionary.
+              <aside class="note" title="Internationalization of the error">
+                <p>
+                  The language and direction of the
+                  {{PaymentValidationErrors/error}} may often be determined
+                  from information inherited from the document. However, this
+                  approach may not suffice for some use cases. The working
+                  group intends to fix this in a future version by aligning
+                  with general approaches for the Web that are in development.
+                </p>
+              </aside>
+            </dd>
+            <dt>
+              <dfn>paymentMethod</dfn> member
+            </dt>
+            <dd>
+              A payment method specific errors.
+            </dd>
+          </dl>
+        </section>
+      </section>
+      <section>
+        <h2>
+          <dfn>methodName</dfn> attribute
+        </h2>
+        <p data-tests=
+        "payment-response/methodName-attribute-manual.https.html">
+          The <a>payment method identifier</a> for the <a>payment method</a>
+          that the user selected to fulfill the transaction.
+        </p>
+      </section>
+      <section>
+        <h2>
+          <dfn>details</dfn> attribute
+        </h2>
+        <p>
+          An {{object}} or <a>dictionary</a> generated by a <a>payment
+          method</a> that a merchant can use to process or validate a
+          transaction (depending on the <a>payment method</a>).
+        </p>
+        <aside class="note">
+          <p>
+            Each <a>standardized payment method identifier</a> defines its own
+            unique IDL <a>dictionary</a> for use with the <a>details</a>
+            attribute. The shape of this data (i.e., its members and their
+            corresponding types and formats) differs depending on which
+            standardized payment method identifier is selected by the end user.
+          </p>
+          <p>
+            Similarly, a <a>URL-based payment method identifier</a> defines the
+            shape of <a>details</a>. However, as URL-based payment method
+            identifiers are not standardized by the W3C, developers need to
+            consult whoever controls the URL for the expected shape of the
+            <a>details</a> object.
+          </p>
+        </aside>
+      </section>
+      <section>
+        <h2>
+          <dfn>requestId</dfn> attribute
+        </h2>
+        <p data-tests="payment-response/requestId-attribute-manual.https.html">
+          The corresponding payment request {{PaymentRequest/id}} that spawned
+          this payment response.
+        </p>
+      </section>
+      <section data-dfn-for="PaymentResponse">
+        <h2>
+          <dfn>complete()</dfn> method
+        </h2>
+        <p class="note">
+          The {{PaymentResponse/complete()}} method is called after the user
+          has accepted the payment request and the
+          {{PaymentRequest/[[acceptPromise]]}} has been resolved. Calling the
+          {{PaymentResponse/complete()}} method tells the <a>user agent</a>
+          that the payment interaction is over (and SHOULD cause any remaining
+          user interface to be closed).
+        </p>
+        <p>
+          After the payment request has been accepted and the
+          {{PaymentResponse}} returned to the caller, but before the caller
+          calls {{PaymentResponse/complete()}}, the payment request user
+          interface remains in a pending state. At this point the user
+          interface SHOULD NOT offer a cancel command because acceptance of the
+          payment request has been returned. However, if something goes wrong
+          and the developer never calls {{PaymentResponse/complete()}} then the
+          user interface is blocked.
+        </p>
+        <p>
+          For this reason, implementations MAY impose a timeout for developers
+          to call {{PaymentResponse/complete()}}. If the timeout expires then
+          the implementation will behave as if {{PaymentResponse/complete()}}
+          was called with no arguments.
+        </p>
+        <p data-tests="payment-response/complete-method-manual.https.html">
+          The {{PaymentResponse/complete()}} method MUST act as follows:
+        </p>
+        <ol class="algorithm">
+          <li>Let |response:PaymentResponse| be [=this=].
+          </li>
+          <li>If |response|.{{PaymentResponse/[[complete]]}} is true, return
+          <a>a promise rejected with</a> an {{"InvalidStateError"}}
+          {{DOMException}}.
+          </li>
+          <li>If |response|.{{PaymentResponse/[[retryPromise]]}} is not null,
+          return <a>a promise rejected with</a> an {{"InvalidStateError"}}
+          {{DOMException}}.
+          </li>
+          <li>Let |promise:Promise| be <a>a new promise</a>.
+          </li>
+          <li>Let |serializedData| be the result of [=serialize a JavaScript
+          value to a JSON string|serialize=]
+          |details|.{{PaymentCompleteDetails/data}} into a JSON string.
+          </li>
+          <li>If serializing [=exception/throws=] an exception, return <a>a
+          promise rejected with</a> that exception.
+          </li>
+          <li>If required by the specification that defines the
+          |response|.{{PaymentResponse/methodName}}:
+            <ol data-cite="ECMASCRIPT">
+              <li>Let |json| be the result of calling `JSON`'s {{JSON/parse()}}
+              with |serializedData|.
+              </li>
+              <li>Let |idl| be the result of [=converted to an IDL
+              value|converting=] |json| to an IDL value of the type specified
+              by the specification that defines the
+              |response|.{{PaymentResponse/methodName}}.
+              </li>
+              <li>If the conversion to an IDL value [=exception/throws=] an
+              [=exception=], return <a>a promise rejected with</a> that
+              exception.
+              </li>
+              <li>If required by the specification that defines the
+              |response|.{{PaymentResponse/methodName}}, validate the members
+              of |idl|. If a member's value is invalid, return <a>a promise
+              rejected with</a> a {{TypeError}}.
+                <aside class="note" title="Opportunity to recover">
+                  <p>
+                    The steps above assures that errors that could result from
+                    IDL type conversion and/or validation are caught as early
+                    as possible, giving the developer an opportunity to
+                    recover.
+                  </p>
+                </aside>
+              </li>
+            </ol>
+          </li>
+          <li>Set |response|.{{PaymentResponse/[[complete]]}} to true.
+          </li>
+          <li>Return |promise| and perform the remaining steps <a>in
+          parallel</a>.
+          </li>
+          <li>If |document| stops being [=Document/fully active=] while the
+          user interface is being shown, or no longer is by the time this step
+          is reached, then:
+            <ol>
+              <li>Close down the user interface.
+              </li>
+              <li>Set |request|'s <a>payment-relevant browsing context</a>'s
+              <a>payment request is showing</a> boolean to false.
+              </li>
+            </ol>
+          </li>
+          <li>Otherwise:
+            <ol>
+              <li>Close down any remaining user interface. The <a>user
+              agent</a> MAY use the value |result| and |serializedData| to
+              influence the user experience.
+              </li>
+              <li>Set |request|'s <a>payment-relevant browsing context</a>'s
+              <a>payment request is showing</a> boolean to false.
+              </li>
+              <li>Resolve |promise| with undefined.
+              </li>
+            </ol>
+          </li>
+        </ol>
+      </section>
+      <section>
+        <h2>
+          Internal Slots
+        </h2>
+        <p>
+          Instances of {{PaymentResponse}} are created with the [=internal
+          slots=] in the following table:
+        </p>
+        <table class="data" data-dfn-for="PaymentResponse">
+          <tr>
+            <th>
+              Internal Slot
+            </th>
+            <th>
+              Description (<em>non-normative</em>)
+            </th>
+          </tr>
+          <tr>
+            <td>
+              <dfn>[[\complete]]</dfn>
+            </td>
+            <td>
+              Is true if the request for payment has completed (i.e.,
+              {{PaymentResponse/complete()}} was called, or there was a fatal
+              error that made the response not longer usable), or false
+              otherwise.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <dfn>[[\request]]</dfn>
+            </td>
+            <td>
+              The {{PaymentRequest}} instance that instantiated this
+              {{PaymentResponse}}.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <dfn>[[\retryPromise]]</dfn>
+            </td>
+            <td>
+              Null, or a {{Promise}} that resolves when a <a>user accepts the
+              payment request</a> or rejects if the <a>user aborts the payment
+              request</a>.
+            </td>
+          </tr>
+        </table>
+      </section>
+    </section>
+    <section id="permissions-policy" data-cite="permissions-policy">
+      <h2>
+        Permissions Policy integration
+      </h2>
+      <p>
+        This specification defines a [=policy-controlled feature=] identified
+        by the string <dfn class="permission">"payment"</dfn>
+        [[permissions-policy]]. Its [=policy-controlled feature/default
+        allowlist=] is [=default allowlist/'self'=].
+      </p>
+      <aside class="note">
+        <p>
+          A <a>document</a>’s [=Document/permissions policy=] determines
+          whether any content in that document is allowed to construct
+          {{PaymentRequest}} instances. If disabled in any document, no content
+          in the document will be <a>allowed to use</a> the {{PaymentRequest}}
+          constructor (trying to create an instance will throw).
+        </p>
+      </aside>
+    </section>
+    <section>
+      <h2>
+        Events
+      </h2>
+      <section class="informative">
+        <h2>
+          Summary
+        </h2>
+        <table class="data">
+          <tr>
+            <th>
+              Event name
+            </th>
+            <th>
+              Interface
+            </th>
+            <th>
+              Dispatched when…
+            </th>
+            <th>
+              Target
+            </th>
+          </tr>
+          <tr>
+            <td>
+              <code><dfn>paymentmethodchange</dfn></code>
+            </td>
+            <td>
+              {{PaymentMethodChangeEvent}}
+            </td>
+            <td>
+              The user chooses a different <a>payment method</a> within a
+              <a>payment handler</a>.
+            </td>
+            <td>
+              {{PaymentRequest}}
+            </td>
+          </tr>
+        </table>
+      </section>
+      <section data-dfn-for="PaymentMethodChangeEvent">
+        <h2>
+          <dfn>PaymentMethodChangeEvent</dfn> interface
+        </h2>
+        <pre class="idl">
+          [SecureContext, Exposed=Window]
+          interface PaymentMethodChangeEvent : PaymentRequestUpdateEvent {
+            constructor(DOMString type, optional PaymentMethodChangeEventInit eventInitDict = {});
+            readonly attribute DOMString methodName;
+            readonly attribute object? methodDetails;
+          };
+        </pre>
+        <section>
+          <h2>
+            <dfn>methodDetails</dfn> attribute
+          </h2>
+          <p>
+            When getting, returns the value it was initialized with. See
+            {{PaymentMethodChangeEventInit/methodDetails}} member of
+            {{PaymentMethodChangeEventInit}} for more information.
+          </p>
+        </section>
+        <section>
+          <h2>
+            <dfn>methodName</dfn> attribute
+          </h2>
+          <p>
+            When getting, returns the value it was initialized with. See
+            {{PaymentMethodChangeEventInit/methodName}} member of
+            {{PaymentMethodChangeEventInit}} for more information.
+          </p>
+        </section>
+        <section data-dfn-for="PaymentMethodChangeEventInit">
+          <h3>
+            <dfn>PaymentMethodChangeEventInit</dfn> dictionary
+          </h3>
+          <pre class="idl">
+            dictionary PaymentMethodChangeEventInit : PaymentRequestUpdateEventInit {
+              DOMString methodName = "";
+              object? methodDetails = null;
+            };
+          </pre>
+          <dl>
+            <dt>
+              <dfn>methodName</dfn> member
+            </dt>
+            <dd>
+              A string representing the <a>payment method identifier</a>.
+            </dd>
+            <dt>
+              <dfn>methodDetails</dfn> member
+            </dt>
+            <dd>
+              An object representing some data from the payment method, or
+              null.
+            </dd>
+          </dl>
+        </section>
+      </section>
+      <section data-dfn-for="PaymentRequestUpdateEvent">
+        <h2>
+          <dfn>PaymentRequestUpdateEvent</dfn> interface
+        </h2>
+        <pre class="idl">
+          [SecureContext, Exposed=Window]
+          interface PaymentRequestUpdateEvent : Event {
+            constructor(DOMString type, optional PaymentRequestUpdateEventInit eventInitDict = {});
+            undefined updateWith(Promise&lt;PaymentDetailsUpdate&gt; detailsPromise);
+          };
+        </pre>
+        <p>
+          The {{PaymentRequestUpdateEvent}} enables developers to update the
+          details of the payment request in response to a user interaction.
+        </p>
+        <section>
+          <h3>
+            <dfn data-lt=
+            "PaymentRequestUpdateEvent.PaymentRequestUpdateEvent()">Constructor</dfn>
+          </h3>
+          <p data-tests=
+          "PaymentRequestUpdateEvent/constructor.https.html, PaymentRequestUpdateEvent/constructor.http.html">
+            The {{PaymentRequestUpdateEvent}}'s
+            {{PaymentRequestUpdateEvent/constructor(type, eventInitDict)}} MUST
+            act as follows:
+          </p>
+          <ol class="algorithm">
+            <li>Let |event:PaymentRequestUpdateEvent| be the result of calling
+            the [=Event/constructor=] of {{PaymentRequestUpdateEvent}} with
+            |type| and |eventInitDict|.
+            </li>
+            <li>Set |event|.{{PaymentRequestUpdateEvent/[[waitForUpdate]]}} to
+            false.
+            </li>
+            <li>Return |event|.
+            </li>
+          </ol>
+        </section>
+        <section>
+          <h2>
+            <dfn>updateWith()</dfn> method
+          </h2>
+          <aside class="note">
+            <p>
+              If a developer wants to update the payment request, then they
+              need to call {{PaymentRequestUpdateEvent/updateWith()}} and
+              provide a {{PaymentDetailsUpdate}} dictionary, or a promise for
+              one, containing changed values that the <a>user agent</a>
+              presents to the user.
+            </p>
+            <p>
+              To prevent the user interface from blocking (and to reflect
+              changes made by the end user through the UI), developers need to
+              immediately call {{PaymentRequestUpdateEvent/updateWith()}}.
+            </p>
+            <p>
+              Additionally, {{PaymentRequestUpdateEvent/[[waitForUpdate]]}}
+              prevents reuse of {{PaymentRequestUpdateEvent}}.
+            </p>
+          </aside>
+          <p data-tests=
+          "PaymentRequestUpdateEvent/updatewith-method.https.html">
+            The {{PaymentRequestUpdateEvent/updateWith()}} with
+            |detailsPromise:Promise| method MUST act as follows:
+          </p>
+          <ol class="algorithm">
+            <li>Let |event:PaymentRequestUpdateEvent| be [=this=].
+            </li>
+            <li>If |event|'s {{Event/isTrusted}} attribute is false, then
+            [=exception/throw=] an {{"InvalidStateError"}} {{DOMException}}.
+            </li>
+            <li>If |event|.{{PaymentRequestUpdateEvent/[[waitForUpdate]]}} is
+            true, then [=exception/throw=] an {{"InvalidStateError"}}
+            {{DOMException}}.
+            </li>
+            <li>If |event|'s [=Event/target=] is an instance of
+            {{PaymentResponse}}, let |request:PaymentRequest| be |event|'s
+            [=Event/target=]'s {{PaymentResponse/[[request]]}}.
+            </li>
+            <li>Otherwise, let |request:PaymentRequest| be the value of
+            |event|'s [=Event/target=].
+            </li>
+            <li>Assert: |request| is an instance of {{PaymentRequest}}.
+            </li>
+            <li>If |request|.{{PaymentRequest/[[state]]}} is not
+            "[=PaymentRequest/interactive=]", then [=exception/throw=] an
+            {{"InvalidStateError"}} {{DOMException}}.
+            </li>
+            <li>If |request|.{{PaymentRequest/[[updating]]}} is true, then
+            [=exception/throw=] an {{"InvalidStateError"}} {{DOMException}}.
+            </li>
+            <li>Set |event|'s [=Event/stop propagation flag=] and [=Event/stop
+            immediate propagation flag=].
+            </li>
+            <li>Set |event|.{{PaymentRequestUpdateEvent/[[waitForUpdate]]}} to
+            true.
+            </li>
+            <li>Let |pmi:URL or null| be null.
+            </li>
+            <li>If |event| has a {{PaymentMethodChangeEvent/methodName}}
+            attribute, set |pmi| to the {{PaymentMethodChangeEvent/methodName}}
+            attribute's value.
+            </li>
+            <li>Run the <a>update a <code>PaymentRequest</code>'s details
+            algorithm</a> with |detailsPromise|, |request|, and |pmi|.
+            </li>
+          </ol>
+        </section>
+        <section>
+          <h2>
+            Internal Slots
+          </h2>
+          <p>
+            Instances of {{PaymentRequestUpdateEvent}} are created with the
+            [=internal slots=] in the following table:
+          </p>
+          <table class="data" data-dfn-for="PaymentRequestUpdateEvent">
+            <tr>
+              <th>
+                Internal Slot
+              </th>
+              <th>
+                Description (<em>non-normative</em>)
+              </th>
+            </tr>
+            <tr>
+              <td>
+                <dfn data-dfn-for=
+                "PaymentRequestUpdateEvent">[[\waitForUpdate]]</dfn>
+              </td>
+              <td>
+                A boolean indicating whether an
+                {{PaymentRequestUpdateEvent/updateWith()}}-initiated update is
+                currently in progress.
+              </td>
+            </tr>
+          </table>
+        </section>
+        <section>
+          <h3>
+            <dfn>PaymentRequestUpdateEventInit</dfn> dictionary
+          </h3>
+          <pre class="idl">
+            dictionary PaymentRequestUpdateEventInit : EventInit {};
+          </pre>
+        </section>
+      </section>
+    </section>
+    <section>
+      <h2>
+        Algorithms
+      </h2>
+      <p>
+        When the [=internal slot=] {{PaymentRequest/[[state]]}} of a
+        {{PaymentRequest}} object is set to "[=PaymentRequest/interactive=]",
+        the <a>user agent</a> will trigger the following algorithms based on
+        user interaction.
+      </p>
+      <section>
+        <h2>
+          Can make payment algorithm
+        </h2>
+        <p>
+          The <dfn>can make payment algorithm</dfn> checks if the <a>user
+          agent</a> supports making payment with the <a>payment methods</a>
+          with which the {{PaymentRequest}} was constructed.
+        </p>
+        <ol class="algorithm">
+          <li>Let |request:PaymentRequest| be the {{PaymentRequest}} object on
+          which the method was called.
+          </li>
+          <li>If |request|.{{PaymentRequest/[[state]]}} is not
+          "[=PaymentRequest/created=]", then return <a>a promise rejected
+          with</a> an {{"InvalidStateError"}} {{DOMException}}.
+          </li>
+          <li data-tests="">Optionally, at the <a>top-level browsing
+          context</a>'s discretion, return <a>a promise rejected with</a> a
+          {{"NotAllowedError"}} {{DOMException}}.
+            <p class="note">
+              This allows user agents to apply heuristics to detect and prevent
+              abuse of the calling method for fingerprinting purposes, such as
+              creating {{PaymentRequest}} objects with a variety of supported
+              <a>payment methods</a> and triggering the <a>can make payment
+              algorithm</a> on them one after the other. For example, a user
+              agent may restrict the number of successful calls that can be
+              made based on the <a>top-level browsing context</a> or the time
+              period in which those calls were made.
+            </p>
+          </li>
+          <li>Let |hasHandlerPromise:Promise| be <a>a new promise</a>.
+          </li>
+          <li>Return |hasHandlerPromise|, and perform the remaining steps <a>in
+          parallel</a>.
+          </li>
+          <li>For each |paymentMethod| tuple in |request|.
+          {{PaymentRequest/[[serializedMethodData]]}}:
+            <ol>
+              <li>Let |identifier| be the first element in the |paymentMethod|
+              tuple.
+              </li>
+              <li>If the user agent has a <a>payment handler</a> that supports
+              handling payment requests for |identifier|, resolve
+              |hasHandlerPromise| with true and terminate this algorithm.
+              </li>
+            </ol>
+          </li>
+          <li>Resolve |hasHandlerPromise| with false.
+          </li>
+        </ol>
+      </section>
+      <section>
+        <h2>
+          Payment method changed algorithm
+        </h2>
+        <p>
+          A <a>payment handler</a> MAY run the <dfn data-export=""
+          data-dfn-for="payment handler">payment method changed algorithm</dfn>
+          when the user changes <a>payment method</a> with |methodDetails|,
+          which is a <a>dictionary</a> or an {{object}} or null, and a
+          |methodName|, which is a DOMString that represents the <a>payment
+          method identifier</a> of the <a>payment handler</a> the user is
+          interacting with.
+        </p>
+        <ol class="algorithm">
+          <li>Let |request:PaymentRequest| be the {{PaymentRequest}} object
+          that the user is interacting with.
+          </li>
+          <li>
+            <a>Queue a task</a> on the <a>user interaction task source</a> to
+            run the following steps:
+            <ol>
+              <li>Assert: |request|.{{PaymentRequest/[[updating]]}} is false.
+              Only one update can take place at a time.
+              </li>
+              <li>Assert: |request|.{{PaymentRequest/[[state]]}} is
+              "[=PaymentRequest/interactive=]".
+              </li>
+              <li>
+                <a>Fire an event</a> named "<a>paymentmethodchange</a>" at
+                |request| using {{PaymentMethodChangeEvent}}, with its
+                {{PaymentMethodChangeEvent/methodName}} attribute initialized
+                to |methodName|, and its
+                {{PaymentMethodChangeEvent/methodDetails}} attribute
+                initialized to |methodDetails|.
+              </li>
+            </ol>
+          </li>
+        </ol>
+      </section>
+      <section>
+        <h2>
+          PaymentRequest updated algorithm
+        </h2>
+        <p>
+          The <dfn>PaymentRequest updated algorithm</dfn> is run by other
+          algorithms above to <a>fire an event</a> to indicate that a user has
+          made a change to a {{PaymentRequest}} called |request| with an event
+          name of |name|:
+        </p>
+        <ol class="algorithm">
+          <li>Assert: |request|.{{PaymentRequest/[[updating]]}} is false. Only
+          one update can take place at a time.
+          </li>
+          <li>Assert: |request|.{{PaymentRequest/[[state]]}} is
+          "[=PaymentRequest/interactive=]".
+          </li>
+          <li>Let |event:PaymentRequestUpdateEvent| be the result of
+          <a>creating an event</a> using the {{PaymentRequestUpdateEvent}}
+          interface.
+          </li>
+          <li>Initialize |event|'s {{Event/type}} attribute to |name|.
+          </li>
+          <li>
+            <a>Dispatch</a> |event| at |request|.
+          </li>
+          <li>If |event|.{{PaymentRequestUpdateEvent/[[waitForUpdate]]}} is
+          true, disable any part of the user interface that could cause another
+          update event to be fired.
+          </li>
+          <li>Otherwise, set
+          |event|.{{PaymentRequestUpdateEvent/[[waitForUpdate]]}} to true.
+          </li>
+        </ol>
+      </section>
+      <section>
+        <h2>
+          User accepts the payment request algorithm
+        </h2>
+        <p>
+          The <dfn data-local-lt="user accepts the payment request"
+          data-export="">user accepts the payment request algorithm</dfn> runs
+          when the user accepts the payment request and confirms that they want
+          to pay. It MUST <a>queue a task</a> on the <a>user interaction task
+          source</a> to perform the following steps:
+        </p>
+        <ol class="algorithm">
+          <li>Let |request:PaymentRequest| be the {{PaymentRequest}} object
+          that the user is interacting with.
+          </li>
+          <li>If the |request|.{{PaymentRequest/[[updating]]}} is true, then
+          terminate this algorithm and take no further action. The <a>user
+          agent</a> user interface SHOULD ensure that this never occurs.
+          </li>
+          <li>If |request|.{{PaymentRequest/[[state]]}} is not
+          "[=PaymentRequest/interactive=]", then terminate this algorithm and
+          take no further action. The <a>user agent</a> user interface SHOULD
+          ensure that this never occurs.
+          </li>
+          <li>Let |isRetry:boolean| be true if
+          |request|.{{PaymentRequest/[[response]]}} is not null, false
+          otherwise.
+          </li>
+          <li>Let |response:PaymentResponse| be
+          |request|.{{PaymentRequest/[[response]]}} if |isRetry| is true, or a
+          new {{PaymentResponse}} otherwise.
+          </li>
+          <li>If |isRetry| is false, initialize the newly created |response|:
+            <ol>
+              <li>Set |response|.{{PaymentResponse/[[request]]}} to |request|.
+              </li>
+              <li>Set |response|.{{PaymentResponse/[[retryPromise]]}} to null.
+              </li>
+              <li>Set |response|.{{PaymentResponse/[[complete]]}} to false.
+              </li>
+              <li>Set the {{PaymentResponse/requestId}} attribute value of
+              |response| to the value of
+              |request|.{{PaymentRequest/[[details]]}}.{{PaymentDetailsInit/id}}.
+              </li>
+              <li>Set |request|.{{PaymentRequest/[[response]]}} to |response|.
+              </li>
+            </ol>
+          </li>
+          <li>Let |handler:payment handler| be
+          |request|.{{PaymentRequest/[[handler]]}}.
+          </li>
+          <li>Set the {{PaymentResponse/methodName}} attribute value of
+          |response| to the <a>payment method identifier</a> of |handler|.
+          </li>
+          <li>Set the {{PaymentResponse/details}} attribute value of |response|
+          to an object resulting from running the |handler|'s <a>steps to
+          respond to a payment request</a>.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[state]]}} to
+          "[=PaymentRequest/closed=]".
+          </li>
+          <li>If |isRetry| is true, resolve
+          |response|.{{PaymentResponse/[[retryPromise]]}} with undefined.
+          Otherwise, resolve |request|.{{PaymentRequest/[[acceptPromise]]}}
+          with |response|.
+          </li>
+        </ol>
+      </section>
+      <section>
+        <h2>
+          User aborts the payment request algorithm
+        </h2>
+        <p data-tests="user-abort-algorithm-manual.https.html">
+          The <dfn data-lt="user aborts the payment request">user aborts the
+          payment request algorithm</dfn> runs when the user aborts the payment
+          request through the currently interactive user interface. It MUST
+          <a>queue a task</a> on the <a>user interaction task source</a> to
+          perform the following steps:
+        </p>
+        <ol class="algorithm">
+          <li>Let |request:PaymentRequest| be the {{PaymentRequest}} object
+          that the user is interacting with.
+          </li>
+          <li>If |request|.{{PaymentRequest/[[state]]}} is not
+          "[=PaymentRequest/interactive=]", then terminate this algorithm and
+          take no further action. The <a>user agent</a> user interface SHOULD
+          ensure that this never occurs.
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[state]]}} to
+          "[=PaymentRequest/closed=]".
+          </li>
+          <li>Set |request|'s <a>payment-relevant browsing context</a>'s
+          <a>payment request is showing</a> boolean to false.
+          </li>
+          <li>Let |error| be an {{"AbortError"}} {{DOMException}}.
+          </li>
+          <li>Let |response:PaymentResponse| be
+          |request|.{{PaymentRequest/[[response]]}}.
+          </li>
+          <li>If |response| is not null:
+            <ol>
+              <li>Set |response|.{{PaymentResponse/[[complete]]}} to true.
+              </li>
+              <li>Assert: |response|.{{PaymentResponse/[[retryPromise]]}} is
+              not null.
+              </li>
+              <li>Reject |response|.{{PaymentResponse/[[retryPromise]]}} with
+              |error|.
+              </li>
+            </ol>
+          </li>
+          <li>Otherwise, reject |request|.{{PaymentRequest/[[acceptPromise]]}}
+          with |error|.
+          </li>
+          <li>Abort the current user interaction and close down any remaining
+          user interface.
+          </li>
+        </ol>
+      </section>
+      <section>
+        <h2>
+          Update a <code>PaymentRequest</code>'s details algorithm
+        </h2>
+        <p>
+          The <dfn>update a <code>PaymentRequest</code>'s details
+          algorithm</dfn> takes a {{PaymentDetailsUpdate}} |detailsPromise|, a
+          {{PaymentRequest}} |request|, and |pmi| that is either a DOMString or
+          null (a <a>payment method identifier</a>). The steps are conditional
+          on the |detailsPromise| settling. If |detailsPromise| never settles
+          then the payment request is blocked. The user agent SHOULD provide
+          the user with a means to abort a payment request. Implementations MAY
+          choose to implement a timeout for pending updates if |detailsPromise|
+          doesn't settle in a reasonable amount of time.
+        </p>
+        <p>
+          In the case where a timeout occurs, or the user manually aborts, or
+          the <a>payment handler</a> decides to abort this particular payment,
+          the user agent MUST run the <a>user aborts the payment request
+          algorithm</a>.
+        </p>
+        <ol class="algorithm">
+          <li>Set |request|.{{PaymentRequest/[[updating]]}} to true.
+          </li>
+          <li>
+            <a>In parallel</a>, disable the user interface that allows the user
+            to accept the payment request. This is to ensure that the payment
+            is not accepted until the user interface is updated with any new
+            details.
+          </li>
+          <li>
+            <a>Upon rejection</a> of |detailsPromise|:
+            <ol>
+              <li>
+                <a>Abort the update</a> with |request| and an {{"AbortError"}}
+                {{DOMException}}.
+              </li>
+            </ol>
+          </li>
+          <li>
+            <a>Upon fulfillment</a> of |detailsPromise| with value |value|:
+            <ol>
+              <li>Let |details:PaymentDetailsUpdate| be the result of
+              [=converted to an IDL value|converting=] |value| to a
+              {{PaymentDetailsUpdate}} dictionary. If this [=exception/throw=]
+              an exception, <a>abort the update</a> with |request| and with the
+              thrown exception.
+              </li>
+              <li>Let |serializedModifierData| be an empty list.
+              </li>
+              <li>Validate and canonicalize the details:
+                <ol>
+                  <li>If the {{PaymentDetailsUpdate/total}} member of |details|
+                  is present, then:
+                    <ol>
+                      <li>
+                        <a>Check and canonicalize total amount</a>
+                        |details|.{{PaymentDetailsUpdate/total}}.{{PaymentItem/amount}}.
+                        If an exception is thrown, then <a>abort the update</a>
+                        with |request| and that exception.
+                      </li>
+                    </ol>
+                  </li>
+                  <li>If the {{PaymentDetailsBase/displayItems}} member of
+                  |details| is present, then for each |item| in
+                  |details|.{{PaymentDetailsBase/displayItems}}:
+                    <ol>
+                      <li>
+                        <a>Check and canonicalize amount</a>
+                        |item|.{{PaymentItem/amount}}. If an exception is
+                        thrown, then <a>abort the update</a> with |request| and
+                        that exception.
+                      </li>
+                    </ol>
+                  </li>
+                  <li>If the {{PaymentDetailsBase/modifiers}} member of
+                  |details| is present, then:
+                    <ol>
+                      <li>Let |modifiers| be the sequence
+                      |details|.{{PaymentDetailsBase/modifiers}}.
+                      </li>
+                      <li>Let |serializedModifierData| be an empty list.
+                      </li>
+                      <li>For each {{PaymentDetailsModifier}} |modifier| in
+                      |modifiers|:
+                        <ol>
+                          <li>Run the steps to <a>validate a payment method
+                          identifier</a> with
+                          |modifier|.{{PaymentDetailsModifier/supportedMethods}}.
+                          If it returns false, then <a>abort the update</a>
+                          with |request| and a {{RangeError}} exception.
+                          Optionally, inform the developer that the payment
+                          method identifier is invalid.
+                          </li>
+                          <li>If the {{PaymentDetailsModifier/total}} member of
+                          |modifier| is present, then:
+                            <ol>
+                              <li>
+                                <a>Check and canonicalize total amount</a>
+                                |modifier|.{{PaymentDetailsModifier/total}}.{{PaymentItem/amount}}.
+                                If an exception is thrown, then <a>abort the
+                                update</a> with |request| and that exception.
+                              </li>
+                            </ol>
+                          </li>
+                          <li>If the
+                          {{PaymentDetailsModifier/additionalDisplayItems}}
+                          member of |modifier| is present, then for each
+                          {{PaymentItem}} |item| in
+                          |modifier|.{{PaymentDetailsModifier/additionalDisplayItems}}:
+                            <ol>
+                              <li>
+                                <a>Check and canonicalize amount</a>
+                                |item|.{{PaymentItem/amount}}. If an exception
+                                is thrown, then <a>abort the update</a> with
+                                |request| and that exception.
+                              </li>
+                            </ol>
+                          </li>
+                          <li>If the {{PaymentDetailsModifier/data}} member of
+                          |modifier| is missing, let |serializedData| be null.
+                          Otherwise, let |serializedData| be the result of
+                          [=serialize a JavaScript value to a JSON
+                          string|serialize=]
+                          |modifier|.{{PaymentDetailsModifier/data}} into a
+                          JSON string. If it throws an exception, then <a>abort
+                          the update</a> with |request| and that exception.
+                          </li>
+                          <li>Add |serializedData| to |serializedModifierData|.
+                          </li>
+                          <li>Remove the {{PaymentDetailsModifier/data}} member
+                          of |modifier|, if it is present.
+                          </li>
+                        </ol>
+                      </li>
+                    </ol>
+                  </li>
+                </ol>
+              </li>
+              <li>If the {{PaymentDetailsUpdate/paymentMethodErrors}} member is
+              present and |identifier| is not null:
+                <ol>
+                  <li>If required by the specification that defines the |pmi|,
+                  then [=converted to an IDL value|convert=]
+                  {{PaymentDetailsUpdate/paymentMethodErrors}} to an IDL value.
+                  </li>
+                  <li>If conversion results in a <a>exception</a> |error|, <a>
+                    abort the update</a> with |error|.
+                  </li>
+                  <li>The <a>payment handler</a> SHOULD display an error for
+                  each relevant erroneous field of
+                  {{PaymentDetailsUpdate/paymentMethodErrors}}.
+                  </li>
+                </ol>
+              </li>
+              <li>Update the {{PaymentRequest}} using the new details:
+                <ol>
+                  <li>If the {{PaymentDetailsUpdate/total}} member of |details|
+                  is present, then:
+                    <ol>
+                      <li>Set
+                      |request|.{{PaymentRequest/[[details]]}}.{{PaymentDetailsInit/total}}
+                      to |details|.{{PaymentDetailsUpdate/total}}.
+                      </li>
+                    </ol>
+                  </li>
+                  <li>If the {{PaymentDetailsBase/displayItems}} member of
+                  |details| is present, then:
+                    <ol>
+                      <li>Set
+                      |request|.{{PaymentRequest/[[details]]}}.{{PaymentDetailsBase/displayItems}}
+                      to |details|.{{PaymentDetailsBase/displayItems}}.
+                      </li>
+                    </ol>
+                  </li>
+                  <li>If the {{PaymentDetailsBase/modifiers}} member of
+                  |details| is present, then:
+                    <ol>
+                      <li>Set
+                      |request|.{{PaymentRequest/[[details]]}}.{{PaymentDetailsBase/modifiers}}
+                      to |details|.{{PaymentDetailsBase/modifiers}}.
+                      </li>
+                      <li>Set
+                      |request|.{{PaymentRequest/[[serializedModifierData]]}}
+                      to |serializedModifierData|.
+                      </li>
+                    </ol>
+                  </li>
+                </ol>
+              </li>
+            </ol>
+          </li>
+          <li>Set |request|.{{PaymentRequest/[[updating]]}} to false.
+          </li>
+          <li>Update the user interface based on any changed values in
+          |request|. Re-enable user interface elements disabled prior to
+          running this algorithm.
+          </li>
+        </ol>
+        <section>
+          <h2>
+            Abort the update
+          </h2>
+          <p>
+            To <dfn data-export="">abort the update</dfn> with a
+            {{PaymentRequest}} |request| and <a>exception</a> |exception|:
+          </p>
+          <ol class="algorithm">
+            <li>Optionally, show an error message to the user when letting them
+            know an error has occurred.
+            </li>
+            <li>Abort the current user interaction and close down any remaining
+            user interface.
+            </li>
+            <li>
+              <a>Queue a task</a> on the <a>user interaction task source</a> to
+              perform the following steps:
+              <ol>
+                <li>Set |request|'s <a>payment-relevant browsing context</a>'s
+                <a>payment request is showing</a> boolean to false.
+                </li>
+                <li>Set |request|.{{PaymentRequest/[[state]]}} to
+                "[=PaymentRequest/closed=]".
+                </li>
+                <li>Let |response:PaymentResponse| be
+                |request|.{{PaymentRequest/[[response]]}}.
+                </li>
+                <li>If |response| is not null, then:
+                  <ol>
+                    <li>Set |response|.{{PaymentResponse/[[complete]]}} to
+                    true.
+                    </li>
+                    <li>Assert: |response|.{{PaymentResponse/[[retryPromise]]}}
+                    is not null.
+                    </li>
+                    <li>Reject |response|.{{PaymentResponse/[[retryPromise]]}}
+                    with |exception|.
+                    </li>
+                  </ol>
+                </li>
+                <li>Otherwise, reject
+                |request|.{{PaymentRequest/[[acceptPromise]]}} with
+                |exception|.
+                </li>
+                <li>Set |request|.{{PaymentRequest/[[updating]]}} to false.
+                </li>
+              </ol>
+            </li>
+            <li>Abort the algorithm.
+            </li>
+          </ol>
+        </section>
+        <div class="note">
+          <p>
+            <a>Abort the update</a> runs when there is a fatal error updating
+            the payment request, such as the supplied |detailsPromise|
+            rejecting, or its fulfillment value containing invalid data. This
+            would potentially leave the payment request in an inconsistent
+            state since the developer hasn't successfully handled the change
+            event.
+          </p>
+          <p>
+            Consequently, the {{PaymentRequest}} moves to a
+            "[=PaymentRequest/closed=]" state. The error is signaled to the
+            developer through the rejection of the
+            {{PaymentRequest/[[acceptPromise]]}}, i.e., the promise returned by
+            {{PaymentRequest/show()}}.
+          </p>
+          <p>
+            Similarly, <a>abort the update</a> occurring during
+            {{PaymentResponse/retry()}} causes the
+            {{PaymentResponse/[[retryPromise]]}} to reject, and the
+            corresponding {{PaymentResponse}}'s
+            {{PaymentResponse/[[complete]]}} [=internal slot=] will be set to
+            true (i.e., it can no longer be used).
+          </p>
+        </div>
+      </section>
+    </section>
+    <section id="privacy">
+      <h2>
+        Privacy and Security Considerations
+      </h2>
+      <section class="informative">
+        <h2>
+          User protections with <code>show()</code> method
+        </h2>
+        <p>
+          To help ensure that users do not inadvertently share sensitive
+          credentials with an origin, this API requires that PaymentRequest's
+          {{PaymentRequest/show()}} method be invoked while the relevant
+          {{Window}} has [=transient activation=] (e.g., via a click or press).
+        </p>
+        <p>
+          To avoid a confusing user experience, this specification limits the
+          user agent to displaying one at a time via the
+          {{PaymentRequest/show()}} method. In addition, the user agent can
+          limit the rate at which a page can call {{PaymentRequest/show()}}.
+        </p>
+      </section>
+      <section class="informative" data-cite="secure-contexts">
+        <h2>
+          Secure contexts
+        </h2>
+        <p>
+          The API defined in this specification is only exposed in a [=secure
+          context=] - see also the [[[secure-contexts]]] specification for more
+          details. In practice, this means that this API is only available over
+          HTTPS. This is to limit the possibility of payment method data (e.g.,
+          credit card numbers) being sent in the clear.
+        </p>
+      </section>
+      <section class="informative">
+        <h2>
+          Cross-origin payment requests
+        </h2>
+        <p>
+          It is common for merchants and other payees to delegate checkout and
+          other e-commerce activities to payment service providers through an
+          <a>iframe</a>. This API supports payee-authorized cross-origin
+          iframes through [[HTML]]'s [^iframe/allow^] attribute.
+        </p>
+        <p class="Note">
+          <a>Payment handlers</a> have access to both the origin that hosts the
+          <a>iframe</a> and the origin of the <a>iframe</a> content (where the
+          {{PaymentRequest}} initiates).
+        </p>
+      </section>
+      <section class="informative">
+        <h2>
+          Encryption of data fields
+        </h2>
+        <p>
+          The {{PaymentRequest}} API does not directly support encryption of
+          data fields. Individual <a>payment methods</a> may choose to include
+          support for encrypted data but it is not mandatory that all
+          <a>payment methods</a> support this.
+        </p>
+      </section>
+      <section class="informative">
+        <h2>
+          How user agents match payment handlers
+        </h2>
+        <p>
+          For security reasons, a user agent can limit matching (in
+          {{PaymentRequest/show()}} and {{PaymentRequest/canMakePayment()}}) to
+          <a>payment handlers</a> from the same <a data-cite=
+          "rfc6454#section-3.2">origin</a> as a URL <a>payment method
+          identifier</a>.
+        </p>
+      </section>
+      <section>
+        <h2 id="data-usage">
+          Data usage
+        </h2>
+        <p>
+          <a>Payment method</a> owners establish the privacy policies for how
+          user data collected for the payment method may be used. Payment
+          Request API sets a clear expectation that data will be used for the
+          purposes of completing a transaction, and user experiences associated
+          with this API convey that intention. It is the responsibility of the
+          payee to ensure that any data usage conforms to payment method
+          policies. For any permitted usage beyond completion of the
+          transaction, the payee should clearly communicate that usage to the
+          user.
+        </p>
+      </section>
+      <section>
+        <h2 id="user-info">
+          Exposing user information
+        </h2>
+        <p>
+          The <a>user agent</a> MUST NOT share information about the user with
+          a developer without user consent.
+        </p>
+        <p>
+          In particular, the {{PaymentMethodData}}'s {{PaymentMethodData/data}}
+          and {{PaymentResponse}}'s {{PaymentResponse/details}} members allow
+          for the arbitrary exchange of data. In light of the wide range of
+          data models used by existing payment methods, prescribing data
+          specifics in this API would limit its usefulness. The
+          {{PaymentResponse/details}} member carries data from the payment
+          handler, whether Web-based (as defined by the [[[payment-handler]]])
+          or proprietary. The [=user agent=] MUST NOT support payment handlers
+          unless they include adequate user consent mechanisms (such as
+          awareness of parties to the transaction and mechanisms for
+          demonstrating the intention to share data).
+        </p>
+        <p>
+          The <a>user agent</a> MUST NOT share the values of the
+          {{PaymentDetailsBase/displayItems}} member or
+          {{PaymentDetailsModifier/additionalDisplayItems}} member for any
+          purpose other than to facilitate completion of the transaction.
+        </p>
+        <p>
+          The {{PaymentMethodChangeEvent}} enables the payee to update the
+          displayed total based on information specific to a selected
+          <a>payment method</a>. For example, the billing address associated
+          with a selected <a>payment method</a> might affect the tax
+          computation (e.g., VAT), and it is desirable that the user interface
+          accurately display the total before the payer completes the
+          transaction. At the same time, it is desirable to share as little
+          information as possible prior to completion of the payment.
+          Therefore, when a <a>payment method</a> defines the <a>steps for when
+          a user changes payment method</a>, it is important to minimize the
+          data shared via the {{PaymentMethodChangeEvent}}'s
+          {{PaymentMethodChangeEvent/methodDetails}} attribute. Requirements
+          and approaches for minimizing shared data are likely to vary by
+          <a>payment method</a>.
+        </p>
+        <p>
+          Where sharing of privacy-sensitive information might not be obvious
+          to users (e.g., when [=payment handler/payment method changed
+          algorithm | changing payment methods =]), it is RECOMMENDED that user
+          agents inform the user of exactly what information is being shared
+          with a merchant.
+        </p>
+      </section>
+      <section>
+        <h2 id="canmakepayment-protections">
+          <code>canMakePayment()</code> protections
+        </h2>
+        <p>
+          The {{PaymentRequest/canMakePayment()}} method provides feature
+          detection for different payment methods. It may become a
+          fingerprinting vector if in the future, a large number of payment
+          methods are available. User agents are expected to protect the user
+          from abuse of the method. For example, user agents can reduce user
+          fingerprinting by:
+        </p>
+        <ul>
+          <li>Rate-limiting the frequency of calls with different parameters.
+          </li>
+        </ul>
+        <p>
+          For rate-limiting the user agent might look at repeated calls from:
+        </p>
+        <ul>
+          <li>the same [=host/registrable domain=].
+          </li>
+          <li>the [=top-level browsing context=]. Alternatively, the user agent
+          may block access to the API entirely for [=origins=] known to be bad
+          actors.
+          </li>
+          <li>the [=origin=] of an [^iframe^] or popup window.
+          </li>
+        </ul>
+        <p>
+          These rate-limiting techniques intend to increase the cost associated
+          with repeated calls, whether it is the cost of managing multiple
+          [=host/registrable domains=] or the user experience friction of
+          opening multiple windows (tabs or pop-ups).
+        </p>
+      </section>
+    </section>
+    <section class="informative">
+      <h2>
+        Accessibility Considerations
+      </h2>
+      <p>
+        For the user-facing aspects of Payment Request API, implementations
+        integrate with platform accessibility APIs via form controls and other
+        input modalities.
+      </p>
+    </section>
+    <section id="dependencies">
+      <h2>
+        Dependencies
+      </h2>
+      <p>
+        This specification relies on several other underlying specifications.
+      </p>
+      <dl data-sort="">
+        <dt>
+          ECMAScript
+        </dt>
+        <dd>
+          The term <dfn data-cite=
+          "ECMASCRIPT#sec-object-internal-methods-and-internal-slots">internal
+          slot</dfn> is defined [[ECMASCRIPT]].
+        </dd>
+      </dl>
+    </section>
+    <section id="conformance">
+      <p>
+        There is only one class of product that can claim conformance to this
+        specification: a <dfn>user agent</dfn>.
+      </p>
+      <p class="note">
+        Although this specification is primarily targeted at web browsers, it
+        is feasible that other software could also implement this specification
+        in a conforming manner.
+      </p>
+      <p>
+        User agents MAY implement algorithms given in this specification in any
+        way desired, so long as the end result is indistinguishable from the
+        result that would be obtained by the specification's algorithms.
+      </p>
+      <p>
+        User agents MAY impose implementation-specific limits on otherwise
+        unconstrained inputs, e.g., to prevent denial of service attacks, to
+        guard against running out of memory, or to work around
+        platform-specific limitations. When an input exceeds
+        implementation-specific limit, the user agent MUST throw, or, in the
+        context of a promise, reject with, a {{TypeError}} optionally informing
+        the developer of how a particular input exceeded an
+        implementation-specific limit.
+      </p>
+    </section>
+    <section id="idl-index" class="appendix"></section>
+    <section class="appendix">
+      <h2>
+        Acknowledgements
+      </h2>
+      <p>
+        This specification was derived from a report published previously by
+        the <a href="https://www.w3.org/community/wicg/">Web Platform Incubator
+        Community Group</a>.
+      </p>
+    </section>
+    <section>
+      <h2>
+        Changelog
+      </h2>
+      <script class="remove">
+        function removeCommits({ message }) {
+          const badCommits = [
+            "for publication as CR",
+            "Merge branch",
+            "Code of Conduct",
+            "prepare the manifest",
+          ];
+          if (badCommits.some(txt => message.startsWith(txt))) {
+            return false;
+          }
+
+          return !/^editorial|^editiorial|^edtiorial|^chore|^fix|^refactor|^tests?|^docs|^typo|^nit|^revert|^merge branch/i.test(message);
+        }
+      </script>
+      <p>
+        Changes from between CR2 until now:
+      </p><rs-changelog from="CR2" filter="removeCommits"></rs-changelog>
+      <p>
+        Changes from between CR1 and CR2:
+      </p><rs-changelog from="CR" to="CR2" filter=
+      "removeCommits"></rs-changelog>
+    </section>
+  </body>
+</html>
